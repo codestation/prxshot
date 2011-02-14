@@ -20,6 +20,7 @@
 #include <pspkernel.h>
 #include <pspdisplay.h>
 #include <pspthreadman.h>
+#include <pspsuspend.h>
 #include <pspctrl.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +38,7 @@ PSP_HEAP_SIZE_KB(0);
 #define GAMEID_DIR "disc0:/UMD_DATA.BIN"
 #define MAX_IMAGES 10000
 #define BMP_SIZE 391734
+#define MODEL_SLIM 1
 #define MODEL_PSPGO 4
 
 char *sceKernelGetUMDData(void);
@@ -49,6 +51,8 @@ char imagefile[64];
 
 SceUID block_id = -1;
 void *block_addr = NULL;
+int volatile_size = 0;
+void *volatile_addr = NULL;
 int game_found = 0;
 int model = -1;
 
@@ -60,7 +64,12 @@ void *kalloc(SceSize size, int type) {
 }
 
 void kfree(void *addr) {
-	if(block_addr == addr) {
+    if(volatile_addr) {
+        sceKernelVolatileMemUnlock(0);
+        volatile_addr = NULL;
+        return;
+    }
+    if(block_addr == addr) {
 		sceKernelFreePartitionMemory(block_id);
 		block_id = -1;
 		block_addr = NULL;
@@ -68,21 +77,28 @@ void kfree(void *addr) {
 }
 
 void *get_mem(SceSize size) {
-	if(!game_found) {
-	    // since some homebrew use large memory support, then lets use
-	    // the memory from the kernel partition
-		return kalloc(size, PSP_MEMORY_PARTITION_KERNEL);
-	} else {
-	    //sorry, no umdcache/phat support with this plguin as we are using
-	    // memory from the slim extra memory
-		void *mem = kalloc(size, PSP_MEMORY_PARTITION_UMDCACHE);
-		if(!mem) {
-		    // try to allocate from kernel memory as a fallback
-			return kalloc(size, PSP_MEMORY_PARTITION_KERNEL);
-		}
-		//TODO: use volatile memory
-		return mem;
-	}
+    void *mem = NULL;
+    if(game_found && model >= MODEL_SLIM) {
+        // use the umd cache only if is a game and slim or superior
+        mem = kalloc(size, PSP_MEMORY_PARTITION_UMDCACHE);
+    }
+    if(!mem) {
+        // else get the memory from kernel
+        mem = kalloc(size, PSP_MEMORY_PARTITION_KERNEL);
+        if(!mem) {
+            // as a last resort, use the volatile mem
+            if(!sceKernelVolatileMemTryLock(0, &volatile_addr, &volatile_size)) {
+                if(volatile_size < BMP_SIZE) {
+                    sceKernelVolatileMemUnlock(0);
+                    volatile_addr = NULL;
+                }
+                return volatile_addr;
+            } else {
+                volatile_addr = NULL;
+            }
+        }
+    }
+	return mem;
 }
 
 int take_shot(const char *path) {
@@ -95,7 +111,7 @@ int take_shot(const char *path) {
 		if(sceDisplayGetFrameBuf(&frame_addr, &frame_width, &pixel_format, PSP_DISPLAY_SETBUF_NEXTFRAME) >= 0 && frame_addr) {
 			ptr = (unsigned int)frame_addr;
 			ptr |= ptr & 0x80000000 ?  0xA0000000 : 0x40000000;
-			bitmapWrite((void *)ptr, block_addr, pixel_format, path);
+			bitmapWrite((void *)ptr, mem, pixel_format, path);
 			kfree(mem);
 			return 0;
 		}
@@ -154,7 +170,6 @@ int thread_start(SceSize args, void *argp) {
 		sceCtrlPeekBufferPositive(&pad, 1);
 		if(pad.Buttons) {
 			if(pad.Buttons & PSP_CTRL_NOTE) {
-			    // only create the directory once
 				if(!init) {
 					create_gamedir(directory);
 					id = update_filename(directory, imagefile);
