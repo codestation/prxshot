@@ -1,3 +1,22 @@
+/*
+ *  Screenshot module
+ *
+ *  Copyright (C) 2011  Codestation
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <pspkernel.h>
 #include <pspdisplay.h>
 #include <pspthreadman.h>
@@ -12,6 +31,7 @@ PSP_MODULE_INFO("ScreenPRX", 0x1000, 1, 0);
 PSP_MAIN_THREAD_ATTR(0);
 PSP_HEAP_SIZE_KB(0);
 
+#define PSP_MEMORY_PARTITION_UMDCACHE 8
 #define PICTURE_DIR "ms0:/PSP/SCREENSHOT/"
 #define GAMEID_DIR "disc0:/UMD_DATA.BIN"
 #define MAX_IMAGES 10000
@@ -45,12 +65,18 @@ void kfree(void *addr) {
 
 void *get_mem(SceSize size) {
 	if(!game_found) {
-		return kalloc(size, 1);
+	    // since some homebrew use large memory support, then lets use
+	    // the memory from the kernel partition
+		return kalloc(size, PSP_MEMORY_PARTITION_KERNEL);
 	} else {
-		void *mem = kalloc(size, 8);
+	    //sorry, no umdcache/phat support with this plguin as we are using
+	    // memory from the slim extra memory
+		void *mem = kalloc(size, PSP_MEMORY_PARTITION_UMDCACHE);
 		if(!mem) {
-			return kalloc(size, 1);
+		    // try to allocate from kernel memory as a fallback
+			return kalloc(size, PSP_MEMORY_PARTITION_KERNEL);
 		}
+		//TODO: use volatile memory
 		return mem;
 	}
 }
@@ -123,13 +149,16 @@ int thread_start(SceSize args, void *argp) {
 		sceCtrlPeekBufferPositive(&pad, 1);
 		if(pad.Buttons) {
 			if(pad.Buttons & PSP_CTRL_NOTE) {
+			    // only create the directory once
 				if(!init) {
 					create_gamedir(directory);
 					id = update_filename(directory, imagefile);
 					init = 1;
 				}
 				take_shot(imagefile);
+				//update the filename and wait for the next shot
 				id = update_filename(directory, imagefile);
+				//launch a thread after the first shot to create the PSCM.DAT
 				if(!created) {
 				    SceUID thid = sceKernelCreateThread("pbp_thread", pbp_thread_start, 0x20, 0x1000, 0, 0);
 				    if(thid >= 0)

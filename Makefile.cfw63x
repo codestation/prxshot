@@ -1,12 +1,13 @@
 TARGET = screenshot
-OBJS = main.o bitmap.o screenshot_stub.o
+OBJS = main.o sfo.o pbp.o bitmap.o imports_635.o
+# logger.o
 PSP_FW_VERSION=550
 BUILD_PRX=1
 
 PRX_EXPORTS=exports.exp
 
 INCDIR =
-CFLAGS = -O2 -G0 -Wall
+CFLAGS = -O2 -G0 -Wall -std=c99
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS = $(CFLAGS)
 
@@ -18,4 +19,4 @@ LIBS =
 
 LDFLAGS = -mno-crt0 -nostartfiles
 PSPSDK=$(shell psp-config --pspsdk-path)
-include $(PSPSDK)/lib/build.mak
+include $(PSPSDK)/lib/build_prx.mak
