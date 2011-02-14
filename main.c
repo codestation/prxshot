@@ -32,12 +32,15 @@ PSP_MAIN_THREAD_ATTR(0);
 PSP_HEAP_SIZE_KB(0);
 
 #define PSP_MEMORY_PARTITION_UMDCACHE 8
-#define PICTURE_DIR "ms0:/PSP/SCREENSHOT/"
+#define PICTURE_DIR_MS "ms0:/PSP/SCREENSHOT/"
+#define PICTURE_DIR_GO "ef0:/PSP/SCREENSHOT/"
 #define GAMEID_DIR "disc0:/UMD_DATA.BIN"
 #define MAX_IMAGES 10000
 #define BMP_SIZE 391734
+#define MODEL_PSPGO 4
 
 char *sceKernelGetUMDData(void);
+int sceKernelGetModel();
 
 SceUID thid;
 SceUID last_id = 0;
@@ -47,6 +50,7 @@ char imagefile[64];
 SceUID block_id = -1;
 void *block_addr = NULL;
 int game_found = 0;
+int model = -1;
 
 void *kalloc(SceSize size, int type) {
 	block_id = sceKernelAllocPartitionMemory(type, "shot-prx", PSP_SMEM_Low, size, NULL);
@@ -130,8 +134,8 @@ void get_gameid(char *buffer) {
 }
 
 void create_gamedir(char *buffer) {
-	strcpy(buffer, PICTURE_DIR);
-	get_gameid(buffer + strlen(PICTURE_DIR));
+	strcpy(buffer, model == MODEL_PSPGO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
+	get_gameid(buffer + strlen(model == MODEL_PSPGO ? PICTURE_DIR_GO : PICTURE_DIR_MS));
 	sceIoMkdir(buffer, 0777);
 }
 
@@ -144,6 +148,7 @@ int thread_start(SceSize args, void *argp) {
 	int id = 0;
 	int init = 0;
 	int created = 0;
+	model = sceKernelGetModel();
 	while(id >= 0) {
 		SceCtrlData pad;
 		sceCtrlPeekBufferPositive(&pad, 1);
