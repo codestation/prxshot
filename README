@@ -1,0 +1,8 @@
+Screenshot plugin that doesnt need to pause the game to take
+the shots (useful for online gaming) and classifies the shots
+per game using their name and icons.
+
+The plugin stores the screenshot in BMP format inside
+/PSP/SCREENSHOT/<GAME_ID>/pic_XXXX.bmp
+
+Source code available at https://github.com/codestation/screenshot-prx
