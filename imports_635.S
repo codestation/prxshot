@@ -17,3 +17,8 @@
 	STUB_FUNC  0x52B54B93,sceKernelGetBlockHeadAddr
 	STUB_FUNC  0x458A70B5,sceKernelGetModel
 	STUB_END
+
+	STUB_START "sceSuspendForKernel",0x40000000,0x00020005
+    STUB_FUNC  0xA14F40B2,sceKernelVolatileMemTryLock
+    STUB_FUNC  0xA569E425,sceKernelVolatileMemUnlock
+    STUB_END
