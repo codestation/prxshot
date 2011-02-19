@@ -22,6 +22,7 @@
 #include <pspthreadman.h>
 #include <pspsuspend.h>
 #include <pspctrl.h>
+#include <pspinit.h>
 #include <stdio.h>
 #include <string.h>
 #include "bitmap.h"
@@ -55,6 +56,9 @@ int volatile_size = 0;
 void *volatile_addr = NULL;
 int game_found = 0;
 int model = -1;
+int api = -1;
+int boot_from = -1;
+const char *eboot_path = NULL;
 
 void *kalloc(SceSize size, int type) {
 	block_id = sceKernelAllocPartitionMemory(type, "shot-prx", PSP_SMEM_Low, size, NULL);
@@ -78,24 +82,32 @@ void kfree(void *addr) {
 
 void *get_mem(SceSize size) {
     void *mem = NULL;
-    if(game_found && model >= MODEL_SLIM) {
+    if((game_found || api == PSP_INIT_KEYCONFIG_VSH) && model >= MODEL_SLIM) {
         // use the umd cache only if is a game and slim or superior
+        logger("game found, getting memory from umd cache\n");
         mem = kalloc(size, PSP_MEMORY_PARTITION_UMDCACHE);
     }
     if(!mem) {
         // else get the memory from kernel
+        logger("getting memory from kernel\n");
         mem = kalloc(size, PSP_MEMORY_PARTITION_KERNEL);
-        if(!mem) {
+        if(!mem && api == PSP_INIT_KEYCONFIG_GAME) {
             // as a last resort, use the volatile mem
+            logger("getting memory from volatile\n");
             if(!sceKernelVolatileMemTryLock(0, &volatile_addr, &volatile_size)) {
                 if(volatile_size < BMP_SIZE) {
                     sceKernelVolatileMemUnlock(0);
                     volatile_addr = NULL;
+                    logger("fail memory from volatile\n");
+                } else {
+                    logger("success memory from volatile\n");
                 }
                 return volatile_addr;
             } else {
                 volatile_addr = NULL;
             }
+        } else {
+            logger("failed getting memory from kernel\n");
         }
     }
 	return mem;
@@ -134,18 +146,38 @@ int update_filename(const char *directory, char *buffer) {
 	return -1;
 }
 
+const char *get_eboot_path() {
+    return (const char *)(0x48800000 + 0x17FFAD0);   //argv[0]
+    //return (const char *)(0x48800000 + 0x17FFEC0); //homebrew
+}
+
 void get_gameid(char *buffer) {
+    char gameid[10];
 	SceUID fd = sceIoOpen(GAMEID_DIR, PSP_O_RDONLY, 0777);
 	if(fd >= 0) {
 		game_found = 1;
-		sceIoRead(fd, buffer, 4);
-		sceIoLseek32(fd, 1, PSP_SEEK_CUR);
-		sceIoRead(fd, buffer+4, 5);
+		sceIoRead(fd, gameid, 10);
 		sceIoClose(fd);
-		buffer[9] = 0;
-		buffer[10] = 0;
+		strcpy(buffer, gameid);
+		if(gameid[4] == '-')
+		    strcpy(buffer + 4, gameid + 5);
 	} else {
-		strcpy(buffer,"Homebrew");
+	    if(api == PSP_INIT_KEYCONFIG_VSH) {
+	        strcpy(buffer,"VSH");
+	    }else {
+	        if(boot_from == PSP_BOOT_MS) {
+	            eboot_path = get_eboot_path();
+	            if(!memcmp(eboot_path, PICTURE_DIR_MS, 4) ||
+	               !memcmp(eboot_path, PICTURE_DIR_GO, 4)) {
+	                if(read_gameid(eboot_path, gameid, sizeof(gameid))) {
+	                    strcpy(buffer, gameid);
+	                    game_found = 1;
+	                } else {
+	                    strcpy(buffer, "Homebrew");
+	                }
+	            }
+	        }
+	    }
 	}
 }
 
@@ -156,7 +188,8 @@ void create_gamedir(char *buffer) {
 }
 
 int pbp_thread_start(SceSize args, void *argp) {
-    write_pbp(directory);
+    write_pbp(directory, eboot_path);
+    logger("pbp thread end\n");
     return 0;
 }
 
@@ -165,6 +198,8 @@ int thread_start(SceSize args, void *argp) {
 	int init = 0;
 	int created = 0;
 	model = sceKernelGetModel();
+	api = sceKernelInitKeyConfig();
+	boot_from = sceKernelBootFrom();
 	while(id >= 0) {
 		SceCtrlData pad;
 		sceCtrlPeekBufferPositive(&pad, 1);
@@ -179,7 +214,7 @@ int thread_start(SceSize args, void *argp) {
 				//update the filename and wait for the next shot
 				id = update_filename(directory, imagefile);
 				//launch a thread after the first shot to create the PSCM.DAT
-				if(!created) {
+				if(!created && api != PSP_INIT_KEYCONFIG_VSH) {
 				    SceUID thid = sceKernelCreateThread("pbp_thread", pbp_thread_start, 0x20, 0x1000, 0, 0);
 				    if(thid >= 0)
 				        sceKernelStartThread(thid, 0, 0);
@@ -192,7 +227,7 @@ int thread_start(SceSize args, void *argp) {
 	return 0;
 }
 
-int module_start(SceSize argc, void *argv) {
+int module_start(SceSize argc, void *argp) {
 	SceUID thid = sceKernelCreateThread("ScreenPRX", thread_start, 0x10, 0x1000, 0, 0);
 	if(thid >= 0)
 		sceKernelStartThread(thid, 0, 0);

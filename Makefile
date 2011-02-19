@@ -1,5 +1,5 @@
 TARGET = screenshot
-OBJS = main.o bitmap.o imports.o sfo.o pbp.o
+OBJS = main.o bitmap.o imports.o sfo.o pbp.o logger.o
 PSP_FW_VERSION=550
 BUILD_PRX=1
 
