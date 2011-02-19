@@ -62,7 +62,6 @@ SceSize append_file(const char *path, SceUID fd, SceUID fdin, int imagesize) {
             }
         }
         if(fdin < 0) {
-            logger("closing image file\n");
             sceIoClose(ifd);
         }
     }
@@ -75,12 +74,10 @@ void write_pbp(const char *path, const char *eboot) {
     SceUID sfo_fd;
     strcpy(pbpname, path);
     strcat(pbpname,"/PSCM.DAT");
-    logger("opening PSCM.DAT\n");
     SceUID pbp_fd = sceIoOpen(pbpname, PSP_O_RDWR | PSP_O_CREAT | PSP_O_EXCL, 0777);
     if(pbp_fd < 0)
         return;
     if(eboot) {
-        log("opening %s\n", eboot);
         sfo_fd = sceIoOpen(eboot, PSP_O_RDONLY, 0777);
     } else {
         sfo_fd = sceIoOpen(SFO_PATH, PSP_O_RDONLY, 0777);
@@ -95,7 +92,6 @@ void write_pbp(const char *path, const char *eboot) {
         size = sceIoLseek32(sfo_fd, 0, PSP_SEEK_END);
         sceIoLseek32(sfo_fd, 0, PSP_SEEK_SET);
     }
-    log("Size of SFO: %i\n", size);
     // create SFO data
     if(size * 2 > sizeof(buffer))
         return;
@@ -110,17 +106,13 @@ void write_pbp(const char *path, const char *eboot) {
     // write PBP header
     sceIoWrite(pbp_fd, &pbp_data, sizeof(struct pbp));
     // write SFO data
-    log("Writting %i bytes of SFO\n", size);
     sceIoWrite(pbp_fd, buffer, size);
-    log("sfo offset: %i\n", pbp_data.sfo_offset);
     if(eboot) {
-        log("looking for offset %i\n", pbp_data.icon0_offset);
         sceIoLseek32(sfo_fd, pbp_data.icon0_offset, PSP_SEEK_SET);
     }
     pbp_data.icon0_offset = pbp_data.sfo_offset + size;
     // write ICON0.PNG
     size = append_file(ICON0_PATH, pbp_fd, sfo_fd, pbp_data.icon1_offset - pbp_data.icon0_offset);
-    log("Size of icon0.png: %i\n", size);
     pbp_data.icon1_offset = pbp_data.icon0_offset + size;
     pbp_data.pic0_offset = pbp_data.icon0_offset + size;
     if(eboot) {
@@ -129,14 +121,12 @@ void write_pbp(const char *path, const char *eboot) {
     pbp_data.pic1_offset = pbp_data.icon0_offset + size;
     // write PIC1.PNG
     size = append_file(PIC1_PATH, pbp_fd, sfo_fd, pbp_data.snd0_offset - pbp_data.pic1_offset);
-    log("Size of pic1.png: %i\n", size);
     pbp_data.snd0_offset = pbp_data.pic1_offset + size;
     pbp_data.psp_offset = pbp_data.pic1_offset + size;
     pbp_data.psar_offset = pbp_data.pic1_offset + size;
     sceIoLseek32(pbp_fd, 0, PSP_SEEK_SET);
     // write updated PBP header
     sceIoWrite(pbp_fd, &pbp_data, sizeof(struct pbp));
-    logger("closing file\n");
     sceIoClose(pbp_fd);
     if(eboot) {
         sceIoClose(sfo_fd);

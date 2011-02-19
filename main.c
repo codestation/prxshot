@@ -84,30 +84,22 @@ void *get_mem(SceSize size) {
     void *mem = NULL;
     if((game_found || api == PSP_INIT_KEYCONFIG_VSH) && model >= MODEL_SLIM) {
         // use the umd cache only if is a game and slim or superior
-        logger("game found, getting memory from umd cache\n");
         mem = kalloc(size, PSP_MEMORY_PARTITION_UMDCACHE);
     }
     if(!mem) {
         // else get the memory from kernel
-        logger("getting memory from kernel\n");
         mem = kalloc(size, PSP_MEMORY_PARTITION_KERNEL);
         if(!mem && api == PSP_INIT_KEYCONFIG_GAME) {
             // as a last resort, use the volatile mem
-            logger("getting memory from volatile\n");
             if(!sceKernelVolatileMemTryLock(0, &volatile_addr, &volatile_size)) {
                 if(volatile_size < BMP_SIZE) {
                     sceKernelVolatileMemUnlock(0);
                     volatile_addr = NULL;
-                    logger("fail memory from volatile\n");
-                } else {
-                    logger("success memory from volatile\n");
                 }
                 return volatile_addr;
             } else {
                 volatile_addr = NULL;
             }
-        } else {
-            logger("failed getting memory from kernel\n");
         }
     }
 	return mem;
@@ -189,7 +181,6 @@ void create_gamedir(char *buffer) {
 
 int pbp_thread_start(SceSize args, void *argp) {
     write_pbp(directory, eboot_path);
-    logger("pbp thread end\n");
     return 0;
 }
 

@@ -97,6 +97,5 @@ int read_sfo(SceUID fd, char *buffer, int size) {
     sfo_data->key_offset = 68;
     sfo_data->value_offset = 100;
     sfo_data->pair_count = 3;
-    log("Returning %i\n", SFO_SIZE);
 	return SFO_SIZE;
 }
