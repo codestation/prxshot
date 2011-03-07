@@ -69,27 +69,34 @@ int read_sfo(SceUID fd, char *buffer, int size) {
             index_buffer[keys_count].data_offset = (int)((char *)value_buffer - buffer) - 100;
             strcpy(keys_buffer_start + keys_offset, key_addr);
             keys_offset += strlen(key_addr) + 1;
-            keys_count++;
             int value_size = 0;
-            if(index_block[i].data_type == 4)
+            if(index_block[i].data_type == 4) {
                 value_size = 4;
-            else if(index_block[i].data_type == 2)
+                memcpy(value_buffer, value_block, value_size);
+            } else if(index_block[i].data_type == 2) {
                 value_size = index_block[i].value_size_with_padding;
-            else
+                // force the TITLE value to 128 bytes
+                memset(value_buffer, 0, 128);
+                memcpy(value_buffer, value_block, value_size);
+                value_size = 128;
+                index_buffer[keys_count].value_size_with_padding = 128;
+            } else {
                 break;
-            memcpy(value_buffer, value_block, value_size);
+            }
+            keys_count++;
             value_buffer += value_size;
         }
         value_block += index_block[i].value_size_with_padding;
     }
     // write VERSION key/value
-    index_buffer[keys_count].key_offset = keys_offset;
-    index_buffer[keys_count].alignment = 4;
-    index_buffer[keys_count].data_type = 4;
-    index_buffer[keys_count].value_size = 4;
-    index_buffer[keys_count].value_size_with_padding = 4;
-    index_buffer[keys_count].data_offset = 0;
-    index_buffer[keys_count].data_offset = (int)((char *)value_buffer - buffer) - 100;
+    struct sfo_index *version = &index_buffer[keys_count];
+    version->key_offset = keys_offset;
+    version->alignment = 4;
+    version->data_type = 4;
+    version->value_size = 4;
+    version->value_size_with_padding = 4;
+    version->data_offset = 0;
+    version->data_offset = (int)((char *)value_buffer - buffer) - 100;
     strcpy(keys_buffer_start + keys_offset, "VERSION");
     int ver = 0x10000;
     memcpy(value_buffer, &ver, 4);

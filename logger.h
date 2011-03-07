@@ -1,7 +1,7 @@
 /*
- *  MHP3patch user module
+ *  prxshot module
  *
- *  Copyright (C) 2010  Codestation
+ *  Copyright (C) 2011  Codestation
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,17 +21,17 @@
 #define LOGGER_H_
 
 #include <string.h>
+#include <stdio.h>
 
-#define LOGFILE "ms0:/screenshot.log"
+#define LOGFILE "ms0:/prxshot.log"
 
 extern char buffer_log[256];
 
-int sprintf(char *str, const char *format, ...);
+#define kprintf(format, ...) { \
+    sprintf(buffer_log, format, ## __VA_ARGS__); \
+    kwrite(LOGFILE, buffer_log, strlen(buffer_log)); \
+}
 
-#define log(format, ...) sprintf(buffer_log, format, ## __VA_ARGS__); \
-                          logger(buffer_log)
-
-int logger(const char * string);
-int appendLog(const char * path, void * buffer, int buflen);
+int kwrite(const char *path, void *buffer, int buflen);
 
 #endif /* LOGGER_H_ */

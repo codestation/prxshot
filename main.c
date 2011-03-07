@@ -1,5 +1,5 @@
 /*
- *  Screenshot module
+ *  prxshot module
  *
  *  Copyright (C) 2011  Codestation
  *
@@ -17,6 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <pspsdk.h>
 #include <pspkernel.h>
 #include <pspdisplay.h>
 #include <pspthreadman.h>
@@ -27,11 +28,12 @@
 #include <string.h>
 #include "bitmap.h"
 #include "pbp.h"
+#include "hook_module.h"
 #include "logger.h"
 
-PSP_MODULE_INFO("ScreenPRX", 0x1000, 1, 0);
+PSP_MODULE_INFO("prxshot", 0x1000, 1, 0);
 PSP_MAIN_THREAD_ATTR(0);
-PSP_HEAP_SIZE_KB(0);
+PSP_HEAP_SIZE_KB(8);
 
 #define PSP_MEMORY_PARTITION_UMDCACHE 8
 #define PICTURE_DIR_MS "ms0:/PSP/SCREENSHOT/"
@@ -47,7 +49,7 @@ int sceKernelGetModel();
 
 SceUID thid;
 SceUID last_id = 0;
-char directory[24];
+char directory[32];
 char imagefile[64];
 
 SceUID block_id = -1;
@@ -58,7 +60,9 @@ int game_found = 0;
 int model = -1;
 int api = -1;
 int boot_from = -1;
-const char *eboot_path = NULL;
+SceUID sema = 0;
+
+char eboot_path[128];
 
 void *kalloc(SceSize size, int type) {
 	block_id = sceKernelAllocPartitionMemory(type, "shot-prx", PSP_SMEM_Low, size, NULL);
@@ -92,10 +96,6 @@ void *get_mem(SceSize size) {
         if(!mem && api == PSP_INIT_KEYCONFIG_GAME) {
             // as a last resort, use the volatile mem
             if(!sceKernelVolatileMemTryLock(0, &volatile_addr, &volatile_size)) {
-                if(volatile_size < BMP_SIZE) {
-                    sceKernelVolatileMemUnlock(0);
-                    volatile_addr = NULL;
-                }
                 return volatile_addr;
             } else {
                 volatile_addr = NULL;
@@ -138,11 +138,6 @@ int update_filename(const char *directory, char *buffer) {
 	return -1;
 }
 
-const char *get_eboot_path() {
-    return (const char *)(0x48800000 + 0x17FFAD0);   //argv[0]
-    //return (const char *)(0x48800000 + 0x17FFEC0); //homebrew
-}
-
 void get_gameid(char *buffer) {
     char gameid[10];
 	SceUID fd = sceIoOpen(GAMEID_DIR, PSP_O_RDONLY, 0777);
@@ -156,17 +151,17 @@ void get_gameid(char *buffer) {
 	} else {
 	    if(api == PSP_INIT_KEYCONFIG_VSH) {
 	        strcpy(buffer,"VSH");
-	    }else {
+	    } else {
 	        if(boot_from == PSP_BOOT_MS) {
-	            eboot_path = get_eboot_path();
-	            if(!memcmp(eboot_path, PICTURE_DIR_MS, 4) ||
-	               !memcmp(eboot_path, PICTURE_DIR_GO, 4)) {
-	                if(read_gameid(eboot_path, gameid, sizeof(gameid))) {
-	                    strcpy(buffer, gameid);
-	                    game_found = 1;
-	                } else {
-	                    strcpy(buffer, "Homebrew");
-	                }
+	            sceKernelWaitSema(sema, 1, NULL);
+	            delete_payload_hook();
+	            if(*eboot_path) {
+                    if(read_gameid(eboot_path, gameid, sizeof(gameid))) {
+                        strcpy(buffer, gameid);
+                        game_found = 1;
+                    } else {
+                        strcpy(buffer, "Homebrew");
+                    }
 	            }
 	        }
 	    }
@@ -184,13 +179,27 @@ int pbp_thread_start(SceSize args, void *argp) {
     return 0;
 }
 
+void prxshot_set_argp(int argc, const char *argp) {
+    int k1 = pspSdkSetK1(0);
+    if(argc <= sizeof(eboot_path))
+        memcpy(eboot_path, argp, argc);
+    else
+        eboot_path[0] = 0;
+    sceKernelSignalSema(sema, 1);
+    pspSdkSetK1(k1);
+}
+
 int thread_start(SceSize args, void *argp) {
+    model = sceKernelGetModel();
+    api = sceKernelInitKeyConfig();
+    boot_from = sceKernelBootFrom();
+    if(api != PSP_INIT_KEYCONFIG_VSH && boot_from == PSP_BOOT_MS) {
+        hook_module_start(prxshot_set_argp);
+        sema = sceKernelCreateSema("hook-sema", 0, 0, 1, NULL);
+    }
 	int id = 0;
 	int init = 0;
 	int created = 0;
-	model = sceKernelGetModel();
-	api = sceKernelInitKeyConfig();
-	boot_from = sceKernelBootFrom();
 	while(id >= 0) {
 		SceCtrlData pad;
 		sceCtrlPeekBufferPositive(&pad, 1);
@@ -207,8 +216,9 @@ int thread_start(SceSize args, void *argp) {
 				//launch a thread after the first shot to create the PSCM.DAT
 				if(!created && api != PSP_INIT_KEYCONFIG_VSH) {
 				    SceUID thid = sceKernelCreateThread("pbp_thread", pbp_thread_start, 0x20, 0x1000, 0, 0);
-				    if(thid >= 0)
+				    if(thid >= 0) {
 				        sceKernelStartThread(thid, 0, 0);
+				    }
 				    created = 1;
 				}
 			}
@@ -219,7 +229,7 @@ int thread_start(SceSize args, void *argp) {
 }
 
 int module_start(SceSize argc, void *argp) {
-	SceUID thid = sceKernelCreateThread("ScreenPRX", thread_start, 0x10, 0x1000, 0, 0);
+	SceUID thid = sceKernelCreateThread("prxshot", thread_start, 0x10, 0x1000, 0, 0);
 	if(thid >= 0)
 		sceKernelStartThread(thid, 0, 0);
 	return 0;

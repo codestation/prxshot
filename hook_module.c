@@ -1,0 +1,93 @@
+/*
+ *  prxshot module
+ *
+ *  Copyright (C) 2011  Codestation
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <pspsysmem.h>
+#include <pspthreadman.h>
+#include <pspmodulemgr.h>
+#include <psputilsforkernel.h>
+#include <string.h>
+#include "hook_module.h"
+#include "payload.h"
+#include "logger.h"
+
+// payload memory id
+SceUID payload_id = -1;
+// payload memory address
+void *payload_addr = NULL;
+// previous module handler
+STMOD_HANDLER previous = NULL;
+// eboot found flag
+int module_found = 0;
+
+int module_start_handler(SceModule2 *module) {
+    // find first module loaded into user memory address
+    // excluding the sceKernelLibrary module
+    if(!module_found && strcmp(module->modname, "sceKernelLibrary") &&
+            (module->text_addr & 0x80000000) != 0x80000000) {
+        module_found = 1;
+        // get the original opcode before patching it
+        u32 opcode = _lw((u32)module->module_start);
+        // calculate the opcode offset
+        int opcode_offset = &asm_hook_patch_addr - &asm_hook_func;
+        // patch the payload with the opcode so it gets executed
+        // before jumping to the original module_start
+        _sw(opcode, (u32)payload_addr + opcode_offset);
+        // patch the module_start so it jumps to our payload
+        MAKE_JUMP((u32)module->module_start, payload_addr);
+        // flush the cache
+        sceKernelDcacheWritebackInvalidateRange(module->module_start, 4);
+        sceKernelIcacheInvalidateRange(module->module_start, 4);
+        // calculate the return jump offset
+        int return_offset = &asm_hook_return_addr - &asm_hook_func;
+        // patch the end of the payload so it can jump and continue
+        // the module_start code
+        MAKE_JUMP((u32)payload_addr + return_offset, module->entry_addr+4);
+    }
+    return previous ? previous(module) : 0;
+}
+
+void *create_payload(void *payload_start, void *payload_end) {
+    // calculate the size of the payload code
+    int payload_size = payload_end - payload_start;
+    // allocate the memory to hold the payload
+    payload_id = sceKernelAllocPartitionMemory(PSP_MEMORY_PARTITION_USER, "user_wrap", PSP_SMEM_High, payload_size, NULL);
+    if(payload_id < 0)
+        return NULL;
+    void *block_addr = sceKernelGetBlockHeadAddr(payload_id);
+    // copy the payload to the newly allocated block
+    memcpy(block_addr, payload_start, payload_size);
+    return block_addr;
+}
+
+int delete_payload_hook() {
+    return sceKernelFreePartitionMemory(payload_id);
+}
+
+void hook_module_start(void *syscall_addr) {
+    payload_addr = create_payload(asm_hook_func, asm_hook_end);
+    if(payload_addr) {
+        // calculate the syscall offset
+        int syscall_offset = &asm_hook_syscall_addr - &asm_hook_func;
+        int syscall_number = sceKernelQuerySystemCall(syscall_addr);
+        // patch the payload code with a syscall to our code
+        MAKE_SYSCALL((u32)payload_addr + syscall_offset, syscall_number);
+        // register the start handler to intercept the eboot
+        previous = sctrlHENSetStartModuleHandler(module_start_handler);
+    }
+}
