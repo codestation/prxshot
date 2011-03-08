@@ -5,4 +5,4 @@ per game using their name and icons.
 The plugin stores the screenshot in BMP format inside
 /PSP/SCREENSHOT/<GAME_ID>/pic_XXXX.bmp
 
-Source code available at https://github.com/codestation/screenshot-prx
+Source code available at https://github.com/codestation/prxshot
