@@ -1,5 +1,5 @@
 /*
- *  Screenshot module
+ *  prxshot module
  *
  *  Copyright (C) 2011  Codestation
  *
@@ -39,5 +39,6 @@ struct pbp {
 
 void write_pbp(const char *path, const char *eboot);
 int read_gameid(const char *path, char *id_buf, int id_size);
+int generate_gameid(const char *path, char *id_buf, int id_size);
 
 #endif /* PBP_H_ */

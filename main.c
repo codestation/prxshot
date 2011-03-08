@@ -139,7 +139,7 @@ int update_filename(const char *directory, char *buffer) {
 }
 
 void get_gameid(char *buffer) {
-    char gameid[10];
+    char gameid[12];
 	SceUID fd = sceIoOpen(GAMEID_DIR, PSP_O_RDONLY, 0777);
 	if(fd >= 0) {
 		game_found = 1;
@@ -156,7 +156,7 @@ void get_gameid(char *buffer) {
 	            sceKernelWaitSema(sema, 1, NULL);
 	            delete_payload_hook();
 	            if(*eboot_path) {
-                    if(read_gameid(eboot_path, gameid, sizeof(gameid))) {
+                    if(generate_gameid(eboot_path, gameid, sizeof(gameid))) {
                         strcpy(buffer, gameid);
                         game_found = 1;
                     } else {

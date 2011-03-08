@@ -1,5 +1,5 @@
 /*
- *  Screenshot module
+ *  prxshot module
  *
  *  Copyright (C) 2011  Codestation
  *
@@ -33,6 +33,29 @@ int read_gameid(const char *path, char *id_buf, int id_size) {
         sceIoRead(fd, &pbp_data, sizeof(struct pbp));
         int size = pbp_data.icon0_offset - pbp_data.sfo_offset;
         res = read_sfo_id(fd, buffer, size, id_buf, id_size);
+        sceIoClose(fd);
+    }
+    return res;
+}
+
+int generate_gameid(const char *path, char *id_buf, int id_size) {
+    struct pbp pbp_data;
+    char title[128];
+    int res = 0;
+    SceUID fd = sceIoOpen(path, PSP_O_RDONLY, 0777);
+    if(fd >= 0) {
+        sceIoRead(fd, &pbp_data, sizeof(struct pbp));
+        int size = pbp_data.icon0_offset - pbp_data.sfo_offset;
+        res = read_sfo_title(fd, buffer, size, title, sizeof(title));
+        if(res > 0) {
+            // Just because all the Homebrew comes with the GAMEID of LocoRoco
+            // so we need a way to identity one homebrew from another.
+            char digest[20];
+            sceKernelUtilsSha1Digest((u8 *)title, (u32)res, (u8 *)digest);
+            sprintf(buffer, "PS%08X", *(u32 *)digest);
+            memcpy(id_buf, buffer, id_size-1);
+            id_buf[id_size-1] = 0;
+        }
         sceIoClose(fd);
     }
     return res;
@@ -110,17 +133,25 @@ void write_pbp(const char *path, const char *eboot) {
     if(eboot) {
         sceIoLseek32(sfo_fd, pbp_data.icon0_offset, PSP_SEEK_SET);
     }
-    pbp_data.icon0_offset = pbp_data.sfo_offset + size;
-    // write ICON0.PNG
-    size = append_file(ICON0_PATH, pbp_fd, sfo_fd, pbp_data.icon1_offset - pbp_data.icon0_offset);
+    if(!eboot || pbp_data.icon0_offset != pbp_data.icon1_offset) {
+        pbp_data.icon0_offset = pbp_data.sfo_offset + size;
+        // write ICON0.PNG
+        size = append_file(ICON0_PATH, pbp_fd, sfo_fd, pbp_data.icon1_offset - pbp_data.icon0_offset);
+    } else {
+        pbp_data.icon0_offset = pbp_data.sfo_offset + size;
+    }
     pbp_data.icon1_offset = pbp_data.icon0_offset + size;
     pbp_data.pic0_offset = pbp_data.icon0_offset + size;
     if(eboot) {
         sceIoLseek32(sfo_fd, pbp_data.pic1_offset, PSP_SEEK_SET);
     }
-    pbp_data.pic1_offset = pbp_data.icon0_offset + size;
-    // write PIC1.PNG
-    size = append_file(PIC1_PATH, pbp_fd, sfo_fd, pbp_data.snd0_offset - pbp_data.pic1_offset);
+    if(!eboot || pbp_data.pic1_offset != pbp_data.snd0_offset) {
+        pbp_data.pic1_offset = pbp_data.icon0_offset + size;
+        // write PIC1.PNG
+        size = append_file(PIC1_PATH, pbp_fd, sfo_fd, pbp_data.snd0_offset - pbp_data.pic1_offset);
+    } else {
+        pbp_data.pic1_offset = pbp_data.icon0_offset + size;
+    }
     pbp_data.snd0_offset = pbp_data.pic1_offset + size;
     pbp_data.psp_offset = pbp_data.pic1_offset + size;
     pbp_data.psar_offset = pbp_data.pic1_offset + size;

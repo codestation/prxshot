@@ -1,5 +1,5 @@
 /*
- *  Screenshot module
+ *  prxshot module
  *
  *  Copyright (C) 2011  Codestation
  *
@@ -45,6 +45,28 @@ int read_sfo_id(SceUID fd, char *buffer, int size, char *id_buf, int id_size) {
     return 0;
 }
 
+int read_sfo_title(SceUID fd, char *buffer, int size, char *id_buf, int id_size) {
+    struct sfo *sfo_data = (struct sfo *)buffer;
+    // read the sfo header
+    sceIoRead(fd, sfo_data, sizeof(struct sfo));
+    // allocate memory to read the sfo block
+    void *sfo_block = buffer + size;
+    sceIoRead(fd, sfo_block, size);
+    // get the sfo index table inside the block
+    struct sfo_index *index_block = sfo_block;
+    unsigned int keys_offset_block = sizeof(struct sfo) + (sizeof(struct sfo_index) * sfo_data->pair_count);
+    void *value_block = sfo_block + sfo_data->value_offset - sizeof(struct sfo);
+    for(int i = 0; i < sfo_data->pair_count; i++) {
+        char *key_addr = sfo_block + index_block[i].key_offset + keys_offset_block - sizeof(struct sfo);
+        if(!strcmp(key_addr, "TITLE")) {
+            memcpy(id_buf, value_block, id_size);
+            return id_size;
+        }
+        value_block += index_block[i].value_size_with_padding;
+    }
+    return 0;
+}
+
 int read_sfo(SceUID fd, char *buffer, int size) {
     struct sfo *sfo_data = (struct sfo *)buffer;
     // read the sfo header
@@ -77,6 +99,12 @@ int read_sfo(SceUID fd, char *buffer, int size) {
                 value_size = index_block[i].value_size_with_padding;
                 // force the TITLE value to 128 bytes
                 memset(value_buffer, 0, 128);
+                if(index_buffer[keys_count].value_size == strlen(value_block)) {
+                    // bugged sfo, while it works for the Game menu, it doesnt
+                    // for the pictures directory
+                    index_buffer[keys_count].value_size++;
+                    value_size++;
+                }
                 memcpy(value_buffer, value_block, value_size);
                 value_size = 128;
                 index_buffer[keys_count].value_size_with_padding = 128;
