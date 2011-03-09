@@ -105,8 +105,9 @@ void write_pbp(const char *path, const char *eboot) {
     } else {
         sfo_fd = sceIoOpen(SFO_PATH, PSP_O_RDONLY, 0777);
     }
-    if(sfo_fd < 0)
+    if(sfo_fd < 0) {
         return;
+    }
     SceSize size;
     if(eboot) {
         sceIoRead(sfo_fd, &pbp_data, sizeof(struct pbp));
@@ -116,8 +117,10 @@ void write_pbp(const char *path, const char *eboot) {
         sceIoLseek32(sfo_fd, 0, PSP_SEEK_SET);
     }
     // create SFO data
-    if(size * 2 > sizeof(buffer))
+    if(size > (sizeof(buffer) - SFO_SIZE)) {
+        //kprintf("SFO size is too big: %i bytes\n", size);
         return;
+    }
     memcpy(pbp_data.id, "\0PBP", 4);
     pbp_data.sfo_offset = sizeof(struct pbp);
     size = read_sfo(sfo_fd, buffer, size);

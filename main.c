@@ -144,6 +144,7 @@ void get_gameid(char *buffer) {
 	if(fd >= 0) {
 		game_found = 1;
 		sceIoRead(fd, gameid, 10);
+		gameid[10] = 0;
 		sceIoClose(fd);
 		strcpy(buffer, gameid);
 		if(gameid[4] == '-')
@@ -175,7 +176,8 @@ void create_gamedir(char *buffer) {
 }
 
 int pbp_thread_start(SceSize args, void *argp) {
-    write_pbp(directory, eboot_path);
+    char *str = eboot_path[0] == 0 ? NULL : eboot_path;
+    write_pbp(directory, str);
     return 0;
 }
 
