@@ -22,7 +22,6 @@
 
 void asm_hook_func();
 void asm_hook_syscall_addr();
-void asm_hook_patch_addr();
 void asm_hook_return_addr();
 void asm_hook_end();
 

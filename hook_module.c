@@ -34,6 +34,19 @@ void *payload_addr = NULL;
 STMOD_HANDLER previous = NULL;
 // eboot found flag
 int module_found = 0;
+// opcode
+u32 opcode_a = NOP;
+u32 opcode_b = NOP;
+
+// module_start addr
+void *start_addr = NULL;
+
+void restore_module_start() {
+    _sw(opcode_a, (u32)start_addr);
+    _sw(opcode_b, (u32)start_addr + 4);
+    sceKernelDcacheWritebackInvalidateRange(start_addr, 8);
+    sceKernelIcacheInvalidateRange(start_addr, 8);
+}
 
 int module_start_handler(SceModule2 *module) {
     // find first module loaded into user memory address
@@ -41,23 +54,23 @@ int module_start_handler(SceModule2 *module) {
     if(!module_found && strcmp(module->modname, "sceKernelLibrary") &&
             (module->text_addr & 0x80000000) != 0x80000000) {
         module_found = 1;
-        // get the original opcode before patching it
-        u32 opcode = _lw((u32)module->module_start);
-        // calculate the opcode offset
-        int opcode_offset = &asm_hook_patch_addr - &asm_hook_func;
-        // patch the payload with the opcode so it gets executed
-        // before jumping to the original module_start
-        _sw(opcode, (u32)payload_addr + opcode_offset);
+        // get the entry address
+        start_addr = module->module_start;
+        // get the original opcodes before patching them
+        opcode_a = _lw((u32)start_addr);
+        opcode_b = _lw((u32)start_addr+4);
         // patch the module_start so it jumps to our payload
-        MAKE_JUMP((u32)module->module_start, payload_addr);
+        MAKE_JUMP((u32)start_addr, payload_addr);
+        // create a empty delay slot
+        _sw(NOP, (u32)start_addr + 4);
         // flush the cache
-        sceKernelDcacheWritebackInvalidateRange(module->module_start, 4);
-        sceKernelIcacheInvalidateRange(module->module_start, 4);
+        sceKernelDcacheWritebackInvalidateRange(start_addr, 8);
+        sceKernelIcacheInvalidateRange(start_addr, 8);
         // calculate the return jump offset
         int return_offset = &asm_hook_return_addr - &asm_hook_func;
         // patch the end of the payload so it can jump and continue
         // the module_start code
-        MAKE_JUMP((u32)payload_addr + return_offset, module->entry_addr+4);
+        MAKE_JUMP((u32)payload_addr + return_offset, start_addr);
     }
     return previous ? previous(module) : 0;
 }
@@ -66,7 +79,8 @@ void *create_payload(void *payload_start, void *payload_end) {
     // calculate the size of the payload code
     int payload_size = payload_end - payload_start;
     // allocate the memory to hold the payload
-    payload_id = sceKernelAllocPartitionMemory(PSP_MEMORY_PARTITION_USER, "user_wrap", PSP_SMEM_High, payload_size, NULL);
+    int part = sceKernelGetModel() > 0 ? PSP_MEMORY_PARTITION_UMDCACHE : PSP_MEMORY_PARTITION_USER;
+    payload_id = sceKernelAllocPartitionMemory(part, "user_wrap", PSP_SMEM_High, payload_size, NULL);
     if(payload_id < 0)
         return NULL;
     void *block_addr = sceKernelGetBlockHeadAddr(payload_id);
@@ -76,7 +90,7 @@ void *create_payload(void *payload_start, void *payload_end) {
 }
 
 int delete_payload_hook() {
-    return sceKernelFreePartitionMemory(payload_id);
+    return payload_id >= 0 ? sceKernelFreePartitionMemory(payload_id) : -1;
 }
 
 void hook_module_start(void *syscall_addr) {

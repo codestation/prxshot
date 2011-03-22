@@ -181,12 +181,13 @@ int pbp_thread_start(SceSize args, void *argp) {
     return 0;
 }
 
-void prxshot_set_argp(int argc, const char *argp) {
+void prxshot_set_argp(int args, const char *argp) {
     int k1 = pspSdkSetK1(0);
-    if(argc <= sizeof(eboot_path))
-        memcpy(eboot_path, argp, argc);
+    if(args <= sizeof(eboot_path))
+        memcpy(eboot_path, argp, args);
     else
         eboot_path[0] = 0;
+    restore_module_start();
     sceKernelSignalSema(sema, 1);
     pspSdkSetK1(k1);
 }

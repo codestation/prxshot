@@ -69,6 +69,8 @@ typedef struct SceModule2
 
 typedef int (* STMOD_HANDLER)(SceModule2 *);
 
+#define PSP_MEMORY_PARTITION_UMDCACHE 8
+
 #define J_OPCODE        0x08000000
 #define JAL_OPCODE      0x0C000000
 #define SYSCALL_OPCODE  0x0000000C
@@ -79,10 +81,12 @@ typedef int (* STMOD_HANDLER)(SceModule2 *);
 #define MAKE_SYSCALL( a, f) _sw(SYSCALL_OPCODE | ( ( ( unsigned int )( f ) & 0x03ffffff ) <<6), a )
 
 unsigned int sceKernelQuerySystemCall(void * function);
+int sceKernelGetModel();
 
 STMOD_HANDLER sctrlHENSetStartModuleHandler(STMOD_HANDLER handler);
 
 void hook_module_start(void *syscall_addr);
 int delete_payload_hook();
+void restore_module_start();
 
 #endif /* HOOK_INJECT_H_ */
