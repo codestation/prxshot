@@ -34,16 +34,17 @@ void *payload_addr = NULL;
 STMOD_HANDLER previous = NULL;
 // eboot found flag
 int module_found = 0;
-// opcode
+// original opcodes from module_start
 u32 opcode_a = NOP;
 u32 opcode_b = NOP;
-
 // module_start addr
 void *start_addr = NULL;
 
 void restore_module_start() {
+    // restore the patched opcodes in the module_start func
     _sw(opcode_a, (u32)start_addr);
     _sw(opcode_b, (u32)start_addr + 4);
+    // flush the cache
     sceKernelDcacheWritebackInvalidateRange(start_addr, 8);
     sceKernelIcacheInvalidateRange(start_addr, 8);
 }

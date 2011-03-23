@@ -64,11 +64,12 @@ SceUID sema = 0;
 
 char eboot_path[128];
 
+// get a block of memory 64-byte aligned
 void *kalloc(SceSize size, int type) {
-	block_id = sceKernelAllocPartitionMemory(type, "shot-prx", PSP_SMEM_Low, size, NULL);
+	block_id = sceKernelAllocPartitionMemory(type, "shot-prx", PSP_SMEM_Low, size + 63, NULL);
 	if(block_id >= 0)
 		block_addr = sceKernelGetBlockHeadAddr(block_id);
-	return block_addr;
+	return (void *)(((u32)block_addr + 63) & ~63);
 }
 
 void kfree(void *addr) {

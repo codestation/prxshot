@@ -23,7 +23,9 @@
 #include "sfo.h"
 #include "logger.h"
 
-char buffer[1024];
+char buffer[1024]__attribute__((aligned(64)));
+
+struct pbp pbp_data __attribute__((aligned(64)));
 
 int read_gameid(const char *path, char *id_buf, int id_size) {
     struct pbp pbp_data;
@@ -49,7 +51,7 @@ int generate_gameid(const char *path, char *id_buf, int id_size) {
         res = read_sfo_title(fd, buffer, size, title, sizeof(title));
         if(res > 0) {
             // Just because all the Homebrew comes with the GAMEID of LocoRoco
-            // so we need a way to identity one homebrew from another.
+            // we need a way to identity one homebrew from another.
             char digest[20];
             sceKernelUtilsSha1Digest((u8 *)title, (u32)res, (u8 *)digest);
             sprintf(buffer, "PS%08X", *(u32 *)digest);
@@ -93,7 +95,6 @@ SceSize append_file(const char *path, SceUID fd, SceUID fdin, int imagesize) {
 
 void write_pbp(const char *path, const char *eboot) {
     char pbpname[48];
-    struct pbp pbp_data;
     SceUID sfo_fd;
     strcpy(pbpname, path);
     strcat(pbpname,"/PSCM.DAT");

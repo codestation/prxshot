@@ -78,7 +78,7 @@ typedef int (* STMOD_HANDLER)(SceModule2 *);
 #define NOP     0x00000000
 #define MAKE_JUMP( a, f ) _sw( J_OPCODE | ( ( ( unsigned int )( f ) & 0x0ffffffc ) >> 2 ), a )
 #define MAKE_CALL( a, f ) _sw( JAL_OPCODE | ( ( ( unsigned int )( f ) >> 2 )  & 0x03ffffff ), a )
-#define MAKE_SYSCALL( a, f) _sw(SYSCALL_OPCODE | ( ( ( unsigned int )( f ) & 0x03ffffff ) <<6), a )
+#define MAKE_SYSCALL( a, f ) _sw(SYSCALL_OPCODE | ( ( ( unsigned int )( f ) & 0x03ffffff ) << 6), a )
 
 unsigned int sceKernelQuerySystemCall(void * function);
 int sceKernelGetModel();
