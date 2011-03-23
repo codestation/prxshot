@@ -25,8 +25,6 @@
 
 char buffer[1024]__attribute__((aligned(64)));
 
-struct pbp pbp_data __attribute__((aligned(64)));
-
 int read_gameid(const char *path, char *id_buf, int id_size) {
     struct pbp pbp_data;
     int res = 0;
@@ -94,6 +92,7 @@ SceSize append_file(const char *path, SceUID fd, SceUID fdin, int imagesize) {
 }
 
 void write_pbp(const char *path, const char *eboot) {
+    struct pbp pbp_data;
     char pbpname[48];
     SceUID sfo_fd;
     strcpy(pbpname, path);
