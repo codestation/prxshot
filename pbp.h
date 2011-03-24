@@ -37,8 +37,7 @@ struct pbp {
     unsigned int psar_offset;
 }__attribute__((packed));
 
-void write_pbp(const char *path, const char *eboot, void *argp, int api);
-//int read_gameid(const char *path, char *id_buf, int id_size);
+void write_pbp(const char *path, const char *eboot, void *argp);
 int generate_gameid(const char *path, char *id_buf, int id_size);
 
 #endif /* PBP_H_ */

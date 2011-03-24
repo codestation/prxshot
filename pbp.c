@@ -30,22 +30,6 @@
 int buffer_id = -1;
 void *buffer = NULL;
 
-//char buffer[1024*2]__attribute__((aligned(64)));
-/*
-int read_gameid(const char *path, char *id_buf, int id_size) {
-    struct pbp pbp_data;
-    int res = 0;
-    SceUID fd = sceIoOpen(path, PSP_O_RDONLY, 0777);
-    if(fd >= 0) {
-        sceIoRead(fd, &pbp_data, sizeof(struct pbp));
-        int size = pbp_data.icon0_offset - pbp_data.sfo_offset;
-        res = read_sfo_id(fd, buffer, size, id_buf, id_size);
-        sceIoClose(fd);
-    }
-    return res;
-}
-*/
-
 int generate_gameid(const char *path, char *id_buf, int id_size) {
     struct pbp pbp_data;
     char title[128];
@@ -110,7 +94,7 @@ void *create_path(void *buffer, const char *argp, const char *file) {
     return buffer;
 }
 
-void write_pbp(const char *path, const char *eboot, void *argp, int api) {
+void write_pbp(const char *path, const char *eboot, void *argp) {
     if(!buffer)
         buffer = kalloc(BUFFER_SIZE + 63, "pbp_blk", &buffer_id, PSP_MEMORY_PARTITION_KERNEL, PSP_SMEM_Low);
     if(!buffer)
@@ -124,6 +108,7 @@ void write_pbp(const char *path, const char *eboot, void *argp, int api) {
     SceUID pbp_fd = sceIoOpen(pbpname, PSP_O_RDWR | PSP_O_CREAT | PSP_O_EXCL, 0777);
     if(pbp_fd < 0)
         return;
+    int api = sceKernelInitKeyConfig();
     if(eboot) {
         sfo_fd = sceIoOpen(eboot, PSP_O_RDONLY, 0777);
     } else {

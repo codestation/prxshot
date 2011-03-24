@@ -22,29 +22,7 @@
 #include "sfo.h"
 #include "pbp.h"
 #include "logger.h"
-/*
-int read_sfo_id(SceUID fd, char *buffer, int size, char *id_buf, int id_size) {
-    struct sfo *sfo_data = (struct sfo *)buffer;
-    // read the sfo header
-    sceIoRead(fd, sfo_data, sizeof(struct sfo));
-    // allocate memory to read the sfo block
-    void *sfo_block = buffer + size;
-    sceIoRead(fd, sfo_block, size);
-    // get the sfo index table inside the block
-    struct sfo_index *index_block = sfo_block;
-    unsigned int keys_offset_block = sizeof(struct sfo) + (sizeof(struct sfo_index) * sfo_data->pair_count);
-    void *value_block = sfo_block + sfo_data->value_offset - sizeof(struct sfo);
-    for(int i = 0; i < sfo_data->pair_count; i++) {
-        char *key_addr = sfo_block + index_block[i].key_offset + keys_offset_block - sizeof(struct sfo);
-        if(!strcmp(key_addr, "DISC_ID")) {
-            memcpy(id_buf, value_block, id_size);
-            return 1;
-        }
-        value_block += index_block[i].value_size_with_padding;
-    }
-    return 0;
-}
-*/
+
 int read_sfo_title(SceUID fd, char *buffer, int size, char *id_buf, int id_size) {
     struct sfo *sfo_data = (struct sfo *)buffer;
     // read the sfo header

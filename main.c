@@ -50,19 +50,14 @@ char eboot_path[128];
 char imagefile[64];
 char directory[32];
 
-SceUID thid;
 SceUID last_id = 0;
-
 int game_found = 0;
-int model = -1;
-int api = -1;
-int boot_from = -1;
-
 SceUID sema = 0;
 
 void *get_mem(SceSize size, int *id) {
     void *mem = NULL;
-    if((game_found || api == PSP_INIT_KEYCONFIG_VSH) && model >= PSP_MODEL_SLIM) {
+    int api = sceKernelInitKeyConfig();
+    if((game_found || api == PSP_INIT_KEYCONFIG_VSH) && sceKernelGetModel() >= PSP_MODEL_SLIM) {
         // use the umd cache only if is a game and slim or superior
         mem = kalloc(size, SHOT_BLK_NAME, id, PSP_MEMORY_PARTITION_UMDCACHE, PSP_SMEM_Low);
     }
@@ -123,10 +118,10 @@ void get_gameid(char *buffer) {
 		if(gameid[4] == '-')
 		    strcpy(buffer + 4, gameid + 5);
 	} else {
-	    if(api == PSP_INIT_KEYCONFIG_VSH) {
+	    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
 	        strcpy(buffer,"XMB");
 	    } else {
-	        if(boot_from == PSP_BOOT_MS) {
+	        if(sceKernelBootFrom() == PSP_BOOT_MS) {
 	            sceKernelWaitSema(sema, 1, NULL);
 	            delete_payload_hook();
 	            if(*eboot_path) {
@@ -143,6 +138,7 @@ void get_gameid(char *buffer) {
 }
 
 void create_gamedir(char *buffer) {
+    int model = sceKernelGetModel();
 	strcpy(buffer, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
 	get_gameid(buffer + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS));
 	sceIoMkdir(buffer, 0777);
@@ -150,7 +146,7 @@ void create_gamedir(char *buffer) {
 
 int pbp_thread_start(SceSize args, void *argp) {
     char *str = eboot_path[0] == 0 ? NULL : eboot_path;
-    write_pbp(directory, str, argp, api);
+    write_pbp(directory, str, argp);
     return 0;
 }
 
@@ -166,10 +162,7 @@ void prxshot_set_argp(int args, const char *argp) {
 }
 
 int thread_start(SceSize args, void *argp) {
-    model = sceKernelGetModel();
-    api = sceKernelInitKeyConfig();
-    boot_from = sceKernelBootFrom();
-    if(api != PSP_INIT_KEYCONFIG_VSH && boot_from == PSP_BOOT_MS) {
+    if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH && sceKernelBootFrom() == PSP_BOOT_MS) {
         hook_module_start(prxshot_set_argp);
         sema = sceKernelCreateSema("hook-sema", 0, 0, 1, NULL);
     }
