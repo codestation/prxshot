@@ -21,7 +21,11 @@
 #include <pspthreadman.h>
 #include <pspmodulemgr.h>
 #include <psputilsforkernel.h>
+
 #include <string.h>
+
+#include "kalloc.h"
+#include "pspdefs.h"
 #include "hook_module.h"
 #include "payload.h"
 #include "logger.h"
@@ -81,17 +85,17 @@ void *create_payload(void *payload_start, void *payload_end) {
     int payload_size = payload_end - payload_start;
     // allocate the memory to hold the payload
     int part = sceKernelGetModel() > 0 ? PSP_MEMORY_PARTITION_UMDCACHE : PSP_MEMORY_PARTITION_USER;
-    payload_id = sceKernelAllocPartitionMemory(part, "user_wrap", PSP_SMEM_High, payload_size, NULL);
-    if(payload_id < 0)
-        return NULL;
-    void *block_addr = sceKernelGetBlockHeadAddr(payload_id);
-    // copy the payload to the newly allocated block
-    memcpy(block_addr, payload_start, payload_size);
+    void *block_addr = kalloc(payload_size, "user_wrap", &payload_id, part, PSP_SMEM_High);
+    if(block_addr) {
+        // copy the payload to the newly allocated block
+        memcpy(block_addr, payload_start, payload_size);
+    }
     return block_addr;
 }
 
-int delete_payload_hook() {
-    return payload_id >= 0 ? sceKernelFreePartitionMemory(payload_id) : -1;
+void delete_payload_hook() {
+    if(payload_id >= 0)
+        kfree(payload_id);
 }
 
 void hook_module_start(void *syscall_addr) {

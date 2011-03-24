@@ -17,28 +17,14 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PBP_H_
-#define PBP_H_
+#ifndef KALLOC_H_
+#define KALLOC_H_
 
-#define SFO_PATH "disc0:/PSP_GAME/PARAM.SFO"
-#define ICON0_PATH "disc0:/PSP_GAME/ICON0.PNG"
-#define PIC1_PATH "disc0:/PSP_GAME/PIC1.PNG"
+#include <pspsysmem.h>
+#include <pspsuspend.h>
 
-struct pbp {
-    char id[4];
-    unsigned int version;
-    unsigned int sfo_offset;
-    unsigned int icon0_offset;
-    unsigned int icon1_offset;
-    unsigned int pic0_offset;
-    unsigned int pic1_offset;
-    unsigned int snd0_offset;
-    unsigned int psp_offset;
-    unsigned int psar_offset;
-}__attribute__((packed));
-
-void write_pbp(const char *path, const char *eboot, void *argp, int api);
-//int read_gameid(const char *path, char *id_buf, int id_size);
-int generate_gameid(const char *path, char *id_buf, int id_size);
-
-#endif /* PBP_H_ */
+void *kalloc(SceSize size, const char *name, int *id, int part, int type);
+void kfree(int id);
+void *kalloc_volatile();
+void kfree_volatile();
+#endif /* KALLOC_H_ */

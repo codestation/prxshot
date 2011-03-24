@@ -17,28 +17,26 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PBP_H_
-#define PBP_H_
+#include "kalloc.h"
 
-#define SFO_PATH "disc0:/PSP_GAME/PARAM.SFO"
-#define ICON0_PATH "disc0:/PSP_GAME/ICON0.PNG"
-#define PIC1_PATH "disc0:/PSP_GAME/PIC1.PNG"
+// get a block of memory 64-byte aligned
+void *kalloc(SceSize size, const char *name, int *id, int part, int type) {
+    void *block = NULL;
+    *id = sceKernelAllocPartitionMemory(part, name, type, size + 63, NULL);
+    if(*id >= 0)
+        block = sceKernelGetBlockHeadAddr(*id);
+    return (void *)(((u32)block + 63) & ~63);
+}
+void kfree(int id) {
+    sceKernelFreePartitionMemory(id);
+}
 
-struct pbp {
-    char id[4];
-    unsigned int version;
-    unsigned int sfo_offset;
-    unsigned int icon0_offset;
-    unsigned int icon1_offset;
-    unsigned int pic0_offset;
-    unsigned int pic1_offset;
-    unsigned int snd0_offset;
-    unsigned int psp_offset;
-    unsigned int psar_offset;
-}__attribute__((packed));
+void *kalloc_volatile() {
+    void *block;
+    int size;
+    return !sceKernelVolatileMemTryLock(0, &block, &size) ? block : NULL;
+}
 
-void write_pbp(const char *path, const char *eboot, void *argp, int api);
-//int read_gameid(const char *path, char *id_buf, int id_size);
-int generate_gameid(const char *path, char *id_buf, int id_size);
-
-#endif /* PBP_H_ */
+void kfree_volatile() {
+    sceKernelVolatileMemUnlock(0);
+}

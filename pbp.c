@@ -18,13 +18,20 @@
  */
 
 #include <pspiofilemgr.h>
+#include <pspinit.h>
 #include <string.h>
+#include "kalloc.h"
 #include "pbp.h"
 #include "sfo.h"
 #include "logger.h"
 
-char buffer[1024]__attribute__((aligned(64)));
+#define BUFFER_SIZE 4096
 
+int buffer_id = -1;
+void *buffer = NULL;
+
+//char buffer[1024*2]__attribute__((aligned(64)));
+/*
 int read_gameid(const char *path, char *id_buf, int id_size) {
     struct pbp pbp_data;
     int res = 0;
@@ -37,11 +44,15 @@ int read_gameid(const char *path, char *id_buf, int id_size) {
     }
     return res;
 }
+*/
 
 int generate_gameid(const char *path, char *id_buf, int id_size) {
     struct pbp pbp_data;
     char title[128];
     int res = 0;
+    buffer = kalloc(BUFFER_SIZE + 63, "pbp_blk", &buffer_id, PSP_MEMORY_PARTITION_KERNEL, PSP_SMEM_Low);
+    if(!buffer)
+        return 0;
     SceUID fd = sceIoOpen(path, PSP_O_RDONLY, 0777);
     if(fd >= 0) {
         sceIoRead(fd, &pbp_data, sizeof(struct pbp));
@@ -62,13 +73,14 @@ int generate_gameid(const char *path, char *id_buf, int id_size) {
 }
 
 SceSize append_file(const char *path, SceUID fd, SceUID fdin, int imagesize) {
-    int read = sizeof(buffer);
+    int read = BUFFER_SIZE;
     SceSize size = 0;
-    SceUID ifd = fdin >= 0 ? fdin : sceIoOpen(path, PSP_O_RDONLY, 0777);
+    SceUID ifd = fdin >= 0 && imagesize > 0 ? fdin : sceIoOpen(path, PSP_O_RDONLY, 0777);
     if(fd >= 0) {
-        if(fdin < 0) {
+        if(fdin < 0 || fdin != ifd) {
             size = sceIoLseek32(ifd, 0, PSP_SEEK_END);
             sceIoLseek32(ifd, 0, PSP_SEEK_SET);
+            imagesize = size;
         } else {
             size = imagesize;
         }
@@ -78,10 +90,10 @@ SceSize append_file(const char *path, SceUID fd, SceUID fdin, int imagesize) {
                 break;
             sceIoWrite(fd, buffer, read);
             imagesize -= read;
-            if(imagesize < sizeof(buffer)) {
+            if(imagesize < BUFFER_SIZE) {
                 read = imagesize;
             } else {
-                read = sizeof(buffer);
+                read = BUFFER_SIZE;
             }
         }
         if(fdin < 0) {
@@ -91,8 +103,20 @@ SceSize append_file(const char *path, SceUID fd, SceUID fdin, int imagesize) {
     return size;
 }
 
-void write_pbp(const char *path, const char *eboot) {
+void *create_path(void *buffer, const char *argp, const char *file) {
+    strcpy(buffer, argp);
+    strrchr(buffer, '/')[1] = 0;
+    strcpy(buffer + strlen(buffer), file);
+    return buffer;
+}
+
+void write_pbp(const char *path, const char *eboot, void *argp, int api) {
+    if(!buffer)
+        buffer = kalloc(BUFFER_SIZE + 63, "pbp_blk", &buffer_id, PSP_MEMORY_PARTITION_KERNEL, PSP_SMEM_Low);
+    if(!buffer)
+        return;
     struct pbp pbp_data;
+    memset(&pbp_data, 0, sizeof(struct pbp));
     char pbpname[48];
     SceUID sfo_fd;
     strcpy(pbpname, path);
@@ -103,7 +127,12 @@ void write_pbp(const char *path, const char *eboot) {
     if(eboot) {
         sfo_fd = sceIoOpen(eboot, PSP_O_RDONLY, 0777);
     } else {
-        sfo_fd = sceIoOpen(SFO_PATH, PSP_O_RDONLY, 0777);
+        if(api == PSP_INIT_KEYCONFIG_VSH) {
+            create_path(buffer, argp, "xmb.sfo");
+            sfo_fd = sceIoOpen(buffer, PSP_O_RDONLY, 0777);
+        } else {
+            sfo_fd = sceIoOpen(SFO_PATH, PSP_O_RDONLY, 0777);
+        }
     }
     if(sfo_fd < 0) {
         return;
@@ -117,7 +146,7 @@ void write_pbp(const char *path, const char *eboot) {
         sceIoLseek32(sfo_fd, 0, PSP_SEEK_SET);
     }
     // create SFO data
-    if(size > (sizeof(buffer) - SFO_SIZE)) {
+    if(size > (BUFFER_SIZE - SFO_SIZE)) {
         //kprintf("SFO size is too big: %i bytes\n", size);
         return;
     }
@@ -136,25 +165,44 @@ void write_pbp(const char *path, const char *eboot) {
     if(eboot) {
         sceIoLseek32(sfo_fd, pbp_data.icon0_offset, PSP_SEEK_SET);
     }
-    if(!eboot || pbp_data.icon0_offset != pbp_data.icon1_offset) {
-        pbp_data.icon0_offset = pbp_data.sfo_offset + size;
-        // write ICON0.PNG
-        size = append_file(ICON0_PATH, pbp_fd, sfo_fd, pbp_data.icon1_offset - pbp_data.icon0_offset);
+    int imgsize = pbp_data.icon1_offset - pbp_data.icon0_offset;
+    if((!eboot || pbp_data.icon0_offset != pbp_data.icon1_offset) && api != PSP_INIT_KEYCONFIG_VSH) {
+        strcpy(buffer, ICON0_PATH);
     } else {
-        pbp_data.icon0_offset = pbp_data.sfo_offset + size;
+        create_path(buffer, argp, "default_icon0.png");
     }
+    pbp_data.icon0_offset = pbp_data.sfo_offset + size;
+    // write ICON0.PNG
+    size = append_file(buffer, pbp_fd, sfo_fd, imgsize);
+
     pbp_data.icon1_offset = pbp_data.icon0_offset + size;
     pbp_data.pic0_offset = pbp_data.icon0_offset + size;
     if(eboot) {
         sceIoLseek32(sfo_fd, pbp_data.pic1_offset, PSP_SEEK_SET);
     }
-    if(!eboot || pbp_data.pic1_offset != pbp_data.snd0_offset) {
-        pbp_data.pic1_offset = pbp_data.icon0_offset + size;
-        // write PIC1.PNG
-        size = append_file(PIC1_PATH, pbp_fd, sfo_fd, pbp_data.snd0_offset - pbp_data.pic1_offset);
-    } else {
-        pbp_data.pic1_offset = pbp_data.icon0_offset + size;
+    create_path(buffer, argp, "prxshot_nopic1.txt");
+    SceUID nofd = sceIoOpen(buffer, PSP_O_RDONLY, 0777);
+    if(nofd < 0) {
+        imgsize = pbp_data.snd0_offset - pbp_data.pic1_offset;
+        if((!eboot || pbp_data.pic1_offset != pbp_data.snd0_offset)  && api != PSP_INIT_KEYCONFIG_VSH) {
+            strcpy(buffer, PIC1_PATH);
+        } else {
+            if(api == PSP_INIT_KEYCONFIG_VSH) {
+                create_path(buffer, argp, "xmb_pic1.png");
+            } else {
+                create_path(buffer, argp, "default_pic1.png");
+            }
+        }
     }
+    pbp_data.pic1_offset = pbp_data.icon0_offset + size;
+    // write PIC1.PNG
+    if(nofd < 0) {
+        size = append_file(buffer, pbp_fd, sfo_fd, imgsize);
+    } else {
+        size = 0;
+        sceIoClose(nofd);
+    }
+    kfree(buffer_id);
     pbp_data.snd0_offset = pbp_data.pic1_offset + size;
     pbp_data.psp_offset = pbp_data.pic1_offset + size;
     pbp_data.psar_offset = pbp_data.pic1_offset + size;

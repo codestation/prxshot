@@ -1,7 +1,6 @@
 TARGET = prxshot
-OBJS = main.o bitmap.o imports.o exports.o sfo.o pbp.o payload.o hook_module.o
+OBJS = main.o bitmap.o imports.o exports.o sfo.o pbp.o payload.o hook_module.o kalloc.o
 # logger.o
-
 LIBS =
 CFLAGS = -Os -G0 -Wall -std=c99
 ASFLAGS = $(CFLAGS)

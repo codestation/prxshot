@@ -22,7 +22,7 @@
 #include "sfo.h"
 #include "pbp.h"
 #include "logger.h"
-
+/*
 int read_sfo_id(SceUID fd, char *buffer, int size, char *id_buf, int id_size) {
     struct sfo *sfo_data = (struct sfo *)buffer;
     // read the sfo header
@@ -44,7 +44,7 @@ int read_sfo_id(SceUID fd, char *buffer, int size, char *id_buf, int id_size) {
     }
     return 0;
 }
-
+*/
 int read_sfo_title(SceUID fd, char *buffer, int size, char *id_buf, int id_size) {
     struct sfo *sfo_data = (struct sfo *)buffer;
     // read the sfo header

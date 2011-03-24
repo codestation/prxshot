@@ -42,7 +42,7 @@ struct sfo {
 }__attribute__((packed));
 
 int read_sfo(SceUID fd, char *buffer, int size);
-int read_sfo_id(SceUID fd, char *buffer, int size, char *id_buf, int id_size);
+//int read_sfo_id(SceUID fd, char *buffer, int size, char *id_buf, int id_size);
 int read_sfo_title(SceUID fd, char *buffer, int size, char *id_buf, int id_size);
 
 #endif /* SFO_H_ */

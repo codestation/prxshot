@@ -21,11 +21,14 @@
 #include <pspkernel.h>
 #include <pspdisplay.h>
 #include <pspthreadman.h>
-#include <pspsuspend.h>
 #include <pspctrl.h>
 #include <pspinit.h>
+
 #include <stdio.h>
 #include <string.h>
+
+#include "pspdefs.h"
+#include "kalloc.h"
 #include "bitmap.h"
 #include "pbp.h"
 #include "hook_module.h"
@@ -35,72 +38,40 @@ PSP_MODULE_INFO("prxshot", 0x1000, 1, 0);
 PSP_MAIN_THREAD_ATTR(0);
 PSP_HEAP_SIZE_KB(8);
 
-#define PSP_MEMORY_PARTITION_UMDCACHE 8
+
 #define PICTURE_DIR_MS "ms0:/PSP/SCREENSHOT/"
 #define PICTURE_DIR_GO "ef0:/PSP/SCREENSHOT/"
 #define GAMEID_DIR "disc0:/UMD_DATA.BIN"
+#define SHOT_BLK_NAME "shot_blk"
 #define MAX_IMAGES 10000
 #define BMP_SIZE 391734
-#define MODEL_SLIM 1
-#define MODEL_PSPGO 4
 
-char *sceKernelGetUMDData(void);
-int sceKernelGetModel();
+char eboot_path[128];
+char imagefile[64];
+char directory[32];
 
 SceUID thid;
 SceUID last_id = 0;
-char directory[32];
-char imagefile[64];
 
-SceUID block_id = -1;
-void *block_addr = NULL;
-int volatile_size = 0;
-void *volatile_addr = NULL;
 int game_found = 0;
 int model = -1;
 int api = -1;
 int boot_from = -1;
+
 SceUID sema = 0;
 
-char eboot_path[128];
-
-// get a block of memory 64-byte aligned
-void *kalloc(SceSize size, int type) {
-	block_id = sceKernelAllocPartitionMemory(type, "shot-prx", PSP_SMEM_Low, size + 63, NULL);
-	if(block_id >= 0)
-		block_addr = sceKernelGetBlockHeadAddr(block_id);
-	return (void *)(((u32)block_addr + 63) & ~63);
-}
-
-void kfree(void *addr) {
-    if(volatile_addr) {
-        sceKernelVolatileMemUnlock(0);
-        volatile_addr = NULL;
-        return;
-    }
-    if(block_addr == addr) {
-		sceKernelFreePartitionMemory(block_id);
-		block_id = -1;
-		block_addr = NULL;
-	}
-}
-
-void *get_mem(SceSize size) {
+void *get_mem(SceSize size, int *id) {
     void *mem = NULL;
-    if((game_found || api == PSP_INIT_KEYCONFIG_VSH) && model >= MODEL_SLIM) {
+    if((game_found || api == PSP_INIT_KEYCONFIG_VSH) && model >= PSP_MODEL_SLIM) {
         // use the umd cache only if is a game and slim or superior
-        mem = kalloc(size, PSP_MEMORY_PARTITION_UMDCACHE);
+        mem = kalloc(size, SHOT_BLK_NAME, id, PSP_MEMORY_PARTITION_UMDCACHE, PSP_SMEM_Low);
     }
     if(!mem) {
         // else get the memory from kernel
-        mem = kalloc(size, PSP_MEMORY_PARTITION_KERNEL);
+        mem = kalloc(size, SHOT_BLK_NAME, id, PSP_MEMORY_PARTITION_KERNEL, PSP_SMEM_Low);
         if(!mem && api == PSP_INIT_KEYCONFIG_GAME) {
             // as a last resort, use the volatile mem
-            if(!sceKernelVolatileMemTryLock(0, &volatile_addr, &volatile_size)) {
-                return volatile_addr;
-            } else {
-                volatile_addr = NULL;
-            }
+            mem = kalloc_volatile();
         }
     }
 	return mem;
@@ -108,16 +79,17 @@ void *get_mem(SceSize size) {
 
 int take_shot(const char *path) {
 	void *frame_addr;
+	SceUID block_id = -1;
 	int frame_width, pixel_format;
 	unsigned int ptr;
-	void *mem = get_mem(BMP_SIZE);
+	void *mem = get_mem(BMP_SIZE, &block_id);
 	if(mem) {
 		sceDisplayWaitVblankStart();
 		if(sceDisplayGetFrameBuf(&frame_addr, &frame_width, &pixel_format, PSP_DISPLAY_SETBUF_NEXTFRAME) >= 0 && frame_addr) {
 			ptr = (unsigned int)frame_addr;
 			ptr |= ptr & 0x80000000 ?  0xA0000000 : 0x40000000;
 			bitmapWrite((void *)ptr, mem, pixel_format, path);
-			kfree(mem);
+			block_id >= 0 ? kfree(block_id) : kfree_volatile();
 			return 0;
 		}
 	}
@@ -152,7 +124,7 @@ void get_gameid(char *buffer) {
 		    strcpy(buffer + 4, gameid + 5);
 	} else {
 	    if(api == PSP_INIT_KEYCONFIG_VSH) {
-	        strcpy(buffer,"VSH");
+	        strcpy(buffer,"XMB");
 	    } else {
 	        if(boot_from == PSP_BOOT_MS) {
 	            sceKernelWaitSema(sema, 1, NULL);
@@ -171,14 +143,14 @@ void get_gameid(char *buffer) {
 }
 
 void create_gamedir(char *buffer) {
-	strcpy(buffer, model == MODEL_PSPGO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
-	get_gameid(buffer + strlen(model == MODEL_PSPGO ? PICTURE_DIR_GO : PICTURE_DIR_MS));
+	strcpy(buffer, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
+	get_gameid(buffer + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS));
 	sceIoMkdir(buffer, 0777);
 }
 
 int pbp_thread_start(SceSize args, void *argp) {
     char *str = eboot_path[0] == 0 ? NULL : eboot_path;
-    write_pbp(directory, str);
+    write_pbp(directory, str, argp, api);
     return 0;
 }
 
@@ -218,10 +190,10 @@ int thread_start(SceSize args, void *argp) {
 				//update the filename and wait for the next shot
 				id = update_filename(directory, imagefile);
 				//launch a thread after the first shot to create the PSCM.DAT
-				if(!created && api != PSP_INIT_KEYCONFIG_VSH) {
-				    SceUID thid = sceKernelCreateThread("pbp_thread", pbp_thread_start, 0x20, 0x1000, 0, 0);
+				if(!created) {
+				    SceUID thid = sceKernelCreateThread("pbp_thread", pbp_thread_start, 0x20, 4096, 0, 0);
 				    if(thid >= 0) {
-				        sceKernelStartThread(thid, 0, 0);
+				        sceKernelStartThread(thid, args, argp);
 				    }
 				    created = 1;
 				}
@@ -233,12 +205,12 @@ int thread_start(SceSize args, void *argp) {
 }
 
 int module_start(SceSize argc, void *argp) {
-	SceUID thid = sceKernelCreateThread("prxshot", thread_start, 0x10, 0x1000, 0, 0);
+	SceUID thid = sceKernelCreateThread("prxshot", thread_start, 0x10, 4096, 0, 0);
 	if(thid >= 0)
-		sceKernelStartThread(thid, 0, 0);
+		sceKernelStartThread(thid, argc, argp);
 	return 0;
 }
 
-int module_stop(SceSize argc, void *argv) {
+int module_stop(SceSize argc, void *argp) {
 	return 0;
 }
