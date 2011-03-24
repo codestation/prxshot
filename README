@@ -1,8 +1,33 @@
-Screenshot plugin that doesnt need to pause the game to take
-the shots (useful for online gaming) and classifies the shots
+prxshot - Codestation
+
+This is a screenshot plugin that doesn't need to pause the game to take
+the capture (useful for online gaming) and classifies the images
 per game using their name and icons.
 
-The plugin stores the screenshot in BMP format inside
-/PSP/SCREENSHOT/<GAME_ID>/pic_XXXX.bmp
+The plugin stores the screenshot in BMP format inside:
+
+>>  /PSP/SCREENSHOT/<GAME_ID>/pic_XXXX.bmp
+
+for umd/iso games or:
+
+>>  /PSP/SCREENSHOT/PS<8 bytes sha1sum of the title>/pic_XXXX.bmp
+
+for homebrew or games in PBP format (because the homebrews have
+the same GAME_ID).
+
+Installation:
+Copy the prxshot directory to the seplugins directory (or anywhere you want)
+and add the plugin to the game.txt file (and/or vsh.txt if you want to).
+
+The prxshot directory comes with these files:
+prxshot.prx: the plugin
+default_icon0.png: optional default icon to use for those homebrews
+without icon (you can make your own image, just try to maintain the same
+dimensions)
+ 
+The plugin by default tries to use the PIC1.PNG file too (the background image
+that appears when the game is selected in the xmb menu) for the screenshot
+folder but you can force the plugin to omit the image by creating a empty 
+file named prxshot_nopic1.txt in the same directory of the plugin.
 
 Source code available at https://github.com/codestation/prxshot
