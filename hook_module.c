@@ -85,7 +85,7 @@ void *create_payload(void *payload_start, void *payload_end) {
     int payload_size = payload_end - payload_start;
     // allocate the memory to hold the payload
     int part = sceKernelGetModel() > 0 ? PSP_MEMORY_PARTITION_UMDCACHE : PSP_MEMORY_PARTITION_USER;
-    void *block_addr = kalloc(payload_size, "user_wrap", &payload_id, part, PSP_SMEM_High);
+    void *block_addr = kalloc(payload_size, "user_payload", &payload_id, part, PSP_SMEM_High);
     if(block_addr) {
         // copy the payload to the newly allocated block
         memcpy(block_addr, payload_start, payload_size);

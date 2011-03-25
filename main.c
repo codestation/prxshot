@@ -150,6 +150,8 @@ int pbp_thread_start(SceSize args, void *argp) {
     return 0;
 }
 
+// syscall to be called inside the payload code, it copies the argp
+// and restores the opcodes of the module_start code
 void prxshot_set_argp(int args, const char *argp) {
     int k1 = pspSdkSetK1(0);
     if(args <= sizeof(eboot_path))

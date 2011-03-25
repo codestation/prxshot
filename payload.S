@@ -41,6 +41,7 @@ asm_hook_syscall_addr:
     lw   $ra,0($sp)
     addiu $sp,$sp,12
 asm_hook_return_addr:
+    // dummy jump to be patched with the address of the module_start
     j    asm_hook_return_addr
     nop
 asm_hook_end:
