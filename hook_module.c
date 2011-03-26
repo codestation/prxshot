@@ -21,6 +21,7 @@
 #include <pspthreadman.h>
 #include <pspmodulemgr.h>
 #include <psputilsforkernel.h>
+#include <pspinit.h>
 
 #include <string.h>
 
@@ -56,7 +57,13 @@ void restore_module_start() {
 int module_start_handler(SceModule2 *module) {
     // find first module loaded into user memory address
     // excluding the sceKernelLibrary module
-    if(!module_found && strcmp(module->modname, "sceKernelLibrary") &&
+    if(!module_found &&
+            strcmp(module->modname, "sceKernelLibrary") &&
+            //FIXME: find a better way to filter out these loaders
+            // blacklist the aLoader plugin
+            strcmp(module->modname, "aLoader") &&
+            // blacklist the Prometheus iso loader
+            strcmp(module->modname, "PLoaderGUI") &&
             (module->text_addr & 0x80000000) != 0x80000000) {
         module_found = 1;
         // get the entry address
@@ -84,7 +91,14 @@ void *create_payload(void *payload_start, void *payload_end) {
     // calculate the size of the payload code
     int payload_size = payload_end - payload_start;
     // allocate the memory to hold the payload
-    int part = sceKernelGetModel() > 0 ? PSP_MEMORY_PARTITION_UMDCACHE : PSP_MEMORY_PARTITION_USER;
+    int part;
+    if(sceKernelGetModel() > 0 &&
+       (sceKernelDevkitVersion() > 0x06030010 ||
+       sceKernelBootFrom() == PSP_BOOT_MS)) {
+        part = PSP_MEMORY_PARTITION_UMDCACHE;
+    } else {
+        part = PSP_MEMORY_PARTITION_USER;
+    }
     void *block_addr = kalloc(payload_size, "user_payload", &payload_id, part, PSP_SMEM_High);
     if(block_addr) {
         // copy the payload to the newly allocated block
