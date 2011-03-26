@@ -117,6 +117,9 @@ void get_gameid(char *buffer) {
 		strcpy(buffer, gameid);
 		if(gameid[4] == '-')
 		    strcpy(buffer + 4, gameid + 5);
+		// sets eboot_path to 0 as it doesn't get initialized on
+		// prxshot_set_argp because is never called for UMD/ISO
+        eboot_path[0] = 0;
 	} else {
 	    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
 	        strcpy(buffer,"XMB");
