@@ -6,7 +6,8 @@ PSP_EXPORT_VAR(module_info)
 PSP_EXPORT_END
 
 PSP_EXPORT_START(prxshot_user, 0x11, 0x4001)
-PSP_EXPORT_FUNC(prxshot_set_argp)
+PSP_EXPORT_FUNC(prxshot_save_argp)
+PSP_EXPORT_FUNC(prxshot_restore_patch)
 PSP_EXPORT_END
 
 PSP_END_EXPORTS

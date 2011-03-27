@@ -20,9 +20,8 @@
 #ifndef MODULE_HOOK_H_
 #define MODULE_HOOK_H_
 
-void asm_hook_func();
-void asm_hook_syscall_addr();
-void asm_hook_return_addr();
-void asm_hook_end();
+void prxshot_save_argp();
+void prxshot_stack_func();
+void prxshot_return_addr();
 
 #endif /* MODULE_HOOK_H_ */

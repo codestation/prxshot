@@ -31,6 +31,7 @@
 #include "kalloc.h"
 #include "bitmap.h"
 #include "pbp.h"
+#include "payload.h"
 #include "hook_module.h"
 #include "logger.h"
 
@@ -108,6 +109,9 @@ int update_filename(const char *directory, char *buffer) {
 
 void get_gameid(char *buffer) {
     char gameid[12];
+    // sets eboot_path to 0 as it doesn't get initialized on
+    // prxshot_set_argp because is never called for UMD/ISO
+    eboot_path[0] = 0;
 	SceUID fd = sceIoOpen(GAMEID_DIR, PSP_O_RDONLY, 0777);
 	if(fd >= 0) {
 		game_found = 1;
@@ -117,16 +121,12 @@ void get_gameid(char *buffer) {
 		strcpy(buffer, gameid);
 		if(gameid[4] == '-')
 		    strcpy(buffer + 4, gameid + 5);
-		// sets eboot_path to 0 as it doesn't get initialized on
-		// prxshot_set_argp because is never called for UMD/ISO
-        eboot_path[0] = 0;
 	} else {
 	    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
 	        strcpy(buffer,"XMB");
 	    } else {
 	        if(sceKernelBootFrom() == PSP_BOOT_MS) {
 	            sceKernelWaitSema(sema, 1, NULL);
-	            delete_payload_hook();
 	            if(*eboot_path) {
                     if(generate_gameid(eboot_path, gameid, sizeof(gameid))) {
                         strcpy(buffer, gameid);
@@ -135,6 +135,8 @@ void get_gameid(char *buffer) {
                         strcpy(buffer, "Homebrew");
                     }
 	            }
+	        } else {
+	            strcpy(buffer, "Homebrew");
 	        }
 	    }
 	}
@@ -153,22 +155,22 @@ int pbp_thread_start(SceSize args, void *argp) {
     return 0;
 }
 
-// syscall to be called inside the payload code, it copies the argp
-// and restores the opcodes of the module_start code
-void prxshot_set_argp(int args, const char *argp) {
+// function to be called into the module_start code, it saves the argp
+// and creates a payload in the user stack
+void syscall_save_argp(int args, const char *argp, void *user_stack) {
     int k1 = pspSdkSetK1(0);
     if(args <= sizeof(eboot_path))
         memcpy(eboot_path, argp, args);
     else
         eboot_path[0] = 0;
-    restore_module_start();
+    create_stack_payload(user_stack);
     sceKernelSignalSema(sema, 1);
     pspSdkSetK1(k1);
 }
 
 int thread_start(SceSize args, void *argp) {
     if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH && sceKernelBootFrom() == PSP_BOOT_MS) {
-        hook_module_start(prxshot_set_argp);
+        hook_module_start();
         sema = sceKernelCreateSema("hook-sema", 0, 0, 1, NULL);
     }
 	int id = 0;

@@ -34,7 +34,8 @@ int generate_gameid(const char *path, char *id_buf, int id_size) {
     struct pbp pbp_data;
     char title[128];
     int res = 0;
-    buffer = kalloc(BUFFER_SIZE + 63, "pbp_blk", &buffer_id, PSP_MEMORY_PARTITION_KERNEL, PSP_SMEM_Low);
+    if(!buffer)
+        buffer = kalloc(BUFFER_SIZE, "pbp_blk", &buffer_id, PSP_MEMORY_PARTITION_KERNEL, PSP_SMEM_Low);
     if(!buffer)
         return 0;
     SceUID fd = sceIoOpen(path, PSP_O_RDONLY, 0777);

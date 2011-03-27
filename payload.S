@@ -19,30 +19,31 @@
 
     .set noreorder
 
-    .global asm_hook_func
-    .global asm_hook_syscall_addr
-    .global asm_hook_return_addr
-    .global asm_hook_end
-    .ent asm_hook_func
+    .global prxshot_save_argp
+    .global prxshot_stack_func
+    .global prxshot_return_addr
 
-asm_hook_func:
-    addiu $sp,$sp,-12
-    // save the $a0, $a1 (args/argp) and $ra registers
-    sw   $ra,0($sp)
-    sw   $a0,4($sp)
-    sw   $a1,8($sp)
-asm_hook_syscall_addr:
-    // dummy syscall to be patched with our syscall number
+    .ent prxshot_stack_func
+prxshot_stack_func:
     syscall 0xC0DE
+    addiu $sp, $sp,-8
+    lw    $a0, 0($sp)
+    lw    $a1, 4($sp)
+prxshot_return_addr:
+    j     prxshot_stack_func
+    addiu $sp, $sp,4
+    .end prxshot_stack_func
+
+    .ent prxshot_save_argp
+prxshot_save_argp:
+    addiu $a2,$a2, -8 // $a2 == user mode $sp
+    sw    $a0, 0($a2) // save args
+    sw    $a1, 4($a2) // save argp
+    addiu $sp,$sp,-4
+    sw    $ra,0($sp)  // save $ra
+    jal   syscall_save_argp
     nop
-    // restore the $a0, $a1 (args/argp) and $ra registers
-    lw   $a1,8($sp)
-    lw   $a0,4($sp)
-    lw   $ra,0($sp)
-    addiu $sp,$sp,12
-asm_hook_return_addr:
-    // dummy jump to be patched with the address of the module_start
-    j    asm_hook_return_addr
-    nop
-asm_hook_end:
-    .end asm_hook_func
+    lw    $ra,0($sp)  // restore $ra
+    jr    $ra
+    addiu $sp,$sp,4
+    .end prxshot_save_argp
