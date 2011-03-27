@@ -109,9 +109,6 @@ int update_filename(const char *directory, char *buffer) {
 
 void get_gameid(char *buffer) {
     char gameid[12];
-    // sets eboot_path to 0 as it doesn't get initialized on
-    // prxshot_set_argp because is never called for UMD/ISO
-    eboot_path[0] = 0;
 	SceUID fd = sceIoOpen(GAMEID_DIR, PSP_O_RDONLY, 0777);
 	if(fd >= 0) {
 		game_found = 1;
@@ -121,6 +118,9 @@ void get_gameid(char *buffer) {
 		strcpy(buffer, gameid);
 		if(gameid[4] == '-')
 		    strcpy(buffer + 4, gameid + 5);
+	    // sets eboot_path to 0 as it doesn't get initialized on
+	    // prxshot_set_argp because is never called for UMD/ISO
+	    eboot_path[0] = 0;
 	} else {
 	    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
 	        strcpy(buffer,"XMB");
