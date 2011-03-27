@@ -1,4 +1,4 @@
-prxshot v0.1 - Codestation
+prxshot v0.1.2 - Codestation
 
 This Homebrew is an entry for the PSP Genesis competition 2011,
 sponsored by npt, psp-hacks.com, pspgen.com, pspslimhacks.com,
@@ -24,15 +24,29 @@ Installation:
 Copy the prxshot directory to the seplugins directory (or anywhere you want)
 and add the plugin to the game.txt file (and/or vsh.txt if you want to).
 
+How to use it: press the NOTE button to take a screenshot.
+
 The prxshot directory comes with these files:
-prxshot.prx: the plugin
-default_icon0.png: optional default icon to use for those homebrews
+* prxshot.prx: the plugin
+* default_icon0.png: optional default icon to use for those homebrews
 without icon (you can make your own image, just try to maintain the same
 dimensions)
+* xmb.sfo: template to make folder icon for screenshots in VSH mode.
  
 The plugin by default tries to use the PIC1.PNG file too (the background image
 that appears when the game is selected in the xmb menu) for the screenshot
 folder but you can force the plugin to omit the image by creating a empty 
 file named prxshot_nopic1.txt in the same directory of the plugin.
+
+Changelog:
+v0.1.2:
+Rewrote asm payload code (doesn't need memory allocation anymore so hopefully
+the issues with 6.20 / aLoader are finally fixed)
+v0.1.1:
+Fixes bugs with 6.20 TN and/or aLoader
+
+Known issues:
+Screenshots during loader screens (OIL/aLoader/PIL) have undefined behaviour
+(wait for the game to actually start)
 
 Source code available at https://github.com/codestation/prxshot
