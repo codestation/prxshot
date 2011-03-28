@@ -145,6 +145,7 @@ void get_gameid(char *buffer) {
 void create_gamedir(char *buffer) {
     int model = sceKernelGetModel();
 	strcpy(buffer, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
+	sceIoMkdir(buffer, 0777);
 	get_gameid(buffer + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS));
 	sceIoMkdir(buffer, 0777);
 }
