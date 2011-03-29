@@ -87,6 +87,7 @@ int module_start_handler(SceModule2 *module) {
             strcmp(module->modname, "aLoader") &&
             // blacklist open idea loader
             strcmp(module->modname, "OpenIdeaController") &&
+            strcmp(module->modname, "ISO Loader Eboot") &&
             // blacklist the Prometheus iso loader
             strcmp(module->modname, "PLoaderGUI")) {
         module_found = 1;

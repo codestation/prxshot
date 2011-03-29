@@ -173,6 +173,12 @@ void syscall_save_argp(int args, const char *argp, void *user_stack) {
 }
 
 int thread_start(SceSize args, void *argp) {
+    // read config file
+    create_path(eboot_path, argp, "prxshot.ini");
+    int key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, eboot_path);
+    ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", picture, sizeof(picture), eboot_path);
+    // clear buffer
+    eboot_path[0] = 0;
     if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH && sceKernelBootFrom() == PSP_BOOT_MS) {
         hook_module_start();
         sema = sceKernelCreateSema("hook-sema", 0, 0, 1, NULL);
@@ -180,9 +186,6 @@ int thread_start(SceSize args, void *argp) {
 	int picture_id = 0;
 	int directory_created = 0;
 	int pbp_created = 0;
-	create_path(eboot_path, argp, "prxshot.ini");
-	int key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, eboot_path);
-	ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", picture, sizeof(picture), eboot_path);
 	while(picture_id >= 0) {
 		SceCtrlData pad;
 		sceCtrlPeekBufferPositive(&pad, 1);
