@@ -85,6 +85,8 @@ int module_start_handler(SceModule2 *module) {
             //FIXME: find a better way to filter out these loaders
             // blacklist the aLoader plugin
             strcmp(module->modname, "aLoader") &&
+            // blacklist open idea loader
+            strcmp(module->modname, "OpenIdeaController") &&
             // blacklist the Prometheus iso loader
             strcmp(module->modname, "PLoaderGUI")) {
         module_found = 1;
