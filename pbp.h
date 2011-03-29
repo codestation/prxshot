@@ -38,6 +38,7 @@ struct pbp {
 }__attribute__((packed));
 
 void write_pbp(const char *path, const char *eboot, void *argp);
+void *create_path(void *buffer, const char *argp, const char *file);
 int generate_gameid(const char *path, char *id_buf, int id_size);
 
 #endif /* PBP_H_ */

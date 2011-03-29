@@ -23,6 +23,7 @@
 #include "kalloc.h"
 #include "pbp.h"
 #include "sfo.h"
+#include "minIni.h"
 #include "logger.h"
 
 #define BUFFER_SIZE 4096
@@ -166,9 +167,9 @@ void write_pbp(const char *path, const char *eboot, void *argp) {
     if(eboot) {
         sceIoLseek32(sfo_fd, pbp_data.pic1_offset, PSP_SEEK_SET);
     }
-    create_path(buffer, argp, "prxshot_nopic1.txt");
-    SceUID nofd = sceIoOpen(buffer, PSP_O_RDONLY, 0777);
-    if(nofd < 0) {
+    create_path(buffer, argp, "prxshot.ini");
+    int pic1 = ini_getbool("General", "CreatePic1", 1, buffer);
+    if(pic1) {
         imgsize = pbp_data.snd0_offset - pbp_data.pic1_offset;
         if((!eboot || pbp_data.pic1_offset != pbp_data.snd0_offset)  && api != PSP_INIT_KEYCONFIG_VSH) {
             strcpy(buffer, PIC1_PATH);
@@ -182,11 +183,10 @@ void write_pbp(const char *path, const char *eboot, void *argp) {
     }
     pbp_data.pic1_offset = pbp_data.icon0_offset + size;
     // write PIC1.PNG
-    if(nofd < 0) {
+    if(pic1) {
         size = append_file(buffer, pbp_fd, sfo_fd, imgsize);
     } else {
         size = 0;
-        sceIoClose(nofd);
     }
     kfree(buffer_id);
     pbp_data.snd0_offset = pbp_data.pic1_offset + size;

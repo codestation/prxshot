@@ -33,6 +33,7 @@
 #include "pbp.h"
 #include "payload.h"
 #include "hook_module.h"
+#include "minIni.h"
 #include "logger.h"
 
 PSP_MODULE_INFO("prxshot", 0x1000, 1, 0);
@@ -40,8 +41,8 @@ PSP_MAIN_THREAD_ATTR(0);
 PSP_HEAP_SIZE_KB(8);
 
 
-#define PICTURE_DIR_MS "ms0:/PSP/SCREENSHOT/"
-#define PICTURE_DIR_GO "ef0:/PSP/SCREENSHOT/"
+#define PICTURE_DIR_MS "ms0:/PSP/SCREENSHOT"
+#define PICTURE_DIR_GO "ef0:/PSP/SCREENSHOT"
 #define GAMEID_DIR "disc0:/UMD_DATA.BIN"
 #define SHOT_BLK_NAME "shot_blk"
 #define MAX_IMAGES 10000
@@ -50,6 +51,7 @@ PSP_HEAP_SIZE_KB(8);
 char eboot_path[128];
 char imagefile[64];
 char directory[32];
+char picture[32];
 
 SceUID last_id = 0;
 int game_found = 0;
@@ -95,7 +97,7 @@ int take_shot(const char *path) {
 int update_filename(const char *directory, char *buffer) {
 	int end = last_id;
 	do {
-		sprintf(buffer, "%s/pic_%04d.bmp", directory, last_id++);
+		sprintf(buffer, picture, directory, last_id++);
 		if(last_id == MAX_IMAGES)
 			last_id = 0;
 		SceUID fd = sceIoOpen(buffer, PSP_O_RDONLY, 0777);
@@ -146,7 +148,8 @@ void create_gamedir(char *buffer) {
     int model = sceKernelGetModel();
 	strcpy(buffer, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
 	sceIoMkdir(buffer, 0777);
-	get_gameid(buffer + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS));
+	strcat(buffer,"/");
+	get_gameid(buffer + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS)+1);
 	sceIoMkdir(buffer, 0777);
 }
 
@@ -174,29 +177,32 @@ int thread_start(SceSize args, void *argp) {
         hook_module_start();
         sema = sceKernelCreateSema("hook-sema", 0, 0, 1, NULL);
     }
-	int id = 0;
-	int init = 0;
-	int created = 0;
-	while(id >= 0) {
+	int picture_id = 0;
+	int directory_created = 0;
+	int pbp_created = 0;
+	create_path(eboot_path, argp, "prxshot.ini");
+	int key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, eboot_path);
+	ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", picture, sizeof(picture), eboot_path);
+	while(picture_id >= 0) {
 		SceCtrlData pad;
 		sceCtrlPeekBufferPositive(&pad, 1);
 		if(pad.Buttons) {
-			if(pad.Buttons & PSP_CTRL_NOTE) {
-				if(!init) {
+			if((pad.Buttons & key_button) == key_button) {
+				if(!directory_created) {
 					create_gamedir(directory);
-					id = update_filename(directory, imagefile);
-					init = 1;
+					picture_id = update_filename(directory, imagefile);
+					directory_created = 1;
 				}
 				take_shot(imagefile);
 				//update the filename and wait for the next shot
-				id = update_filename(directory, imagefile);
+				picture_id = update_filename(directory, imagefile);
 				//launch a thread after the first shot to create the PSCM.DAT
-				if(!created) {
+				if(!pbp_created) {
 				    SceUID thid = sceKernelCreateThread("pbp_thread", pbp_thread_start, 0x20, 4096, 0, 0);
 				    if(thid >= 0) {
 				        sceKernelStartThread(thid, args, argp);
 				    }
-				    created = 1;
+				    pbp_created = 1;
 				}
 			}
 		}
