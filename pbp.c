@@ -30,6 +30,7 @@
 
 int buffer_id = -1;
 void *buffer = NULL;
+int pic1 = -1;
 
 int generate_gameid(const char *path, char *id_buf, int id_size) {
     struct pbp pbp_data;
@@ -167,8 +168,10 @@ void write_pbp(const char *path, const char *eboot, void *argp) {
     if(eboot) {
         sceIoLseek32(sfo_fd, pbp_data.pic1_offset, PSP_SEEK_SET);
     }
-    create_path(buffer, argp, "prxshot.ini");
-    int pic1 = ini_getbool("General", "CreatePic1", 1, buffer);
+    if(pic1 < 0) {
+        create_path(buffer, argp, "prxshot.ini");
+        pic1 = ini_getbool("General", "CreatePic1", 1, buffer);
+    }
     if(pic1) {
         imgsize = pbp_data.snd0_offset - pbp_data.pic1_offset;
         if((!eboot || pbp_data.pic1_offset != pbp_data.snd0_offset)  && api != PSP_INIT_KEYCONFIG_VSH) {
