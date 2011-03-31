@@ -231,6 +231,9 @@ int thread_start(SceSize args, void *argp) {
 				    }
 				    pbp_created = 1;
 				}
+				if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
+					sceIoDevctl("fatms0:", 0x0240D81E, NULL, 0, NULL, 0);
+				}
 			}
 		}
 		sceKernelDelayThread(100000); //1.000.000 = 1 seg
