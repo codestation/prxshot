@@ -25,6 +25,12 @@
 
 #define LOGFILE "ms0:/prxshot.log"
 
+#ifndef KPRINTF_ENABLED
+
+#define kprintf(format, ...)
+
+#else
+
 extern char buffer_log[256];
 
 #define kprintf(format, ...) { \
@@ -33,5 +39,7 @@ extern char buffer_log[256];
 }
 
 int kwrite(const char *path, void *buffer, int buflen);
+
+#endif
 
 #endif /* LOGGER_H_ */

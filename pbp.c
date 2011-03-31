@@ -38,14 +38,19 @@ int generate_gameid(const char *path, char *id_buf, int id_size) {
     int res = 0;
     if(!buffer)
         buffer = kalloc(BUFFER_SIZE, "pbp_blk", &buffer_id, PSP_MEMORY_PARTITION_KERNEL, PSP_SMEM_Low);
-    if(!buffer)
+    if(!buffer) {
+        kprintf("Cannot allocate pbp buffer\n");
         return 0;
+    }
+    kprintf("Opening %s\n", path);
     SceUID fd = sceIoOpen(path, PSP_O_RDONLY, 0777);
     if(fd >= 0) {
+        kprintf("Opened %s\n", path)
         sceIoRead(fd, &pbp_data, sizeof(struct pbp));
         int size = pbp_data.icon0_offset - pbp_data.sfo_offset;
         res = read_sfo_title(fd, buffer, size, title, sizeof(title));
         if(res > 0) {
+            kprintf("Title found: %s\n", title);
             // Just because all the Homebrew comes with the GAMEID of LocoRoco
             // we need a way to identity one homebrew from another.
             char digest[20];
@@ -53,6 +58,8 @@ int generate_gameid(const char *path, char *id_buf, int id_size) {
             sprintf(buffer, "PS%08X", *(u32 *)digest);
             memcpy(id_buf, buffer, id_size-1);
             id_buf[id_size-1] = 0;
+        } else {
+            kprintf("Failed to get game title\n");
         }
         sceIoClose(fd);
     }

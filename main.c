@@ -111,6 +111,7 @@ int update_filename(const char *directory, char *buffer) {
 
 void get_gameid(char *buffer) {
     char gameid[12];
+    // check if an UMD (or ISO) is present
 	SceUID fd = sceIoOpen(GAMEID_DIR, PSP_O_RDONLY, 0777);
 	if(fd >= 0) {
 		game_found = 1;
@@ -134,23 +135,37 @@ void get_gameid(char *buffer) {
                         strcpy(buffer, gameid);
                         game_found = 1;
                     } else {
+                        kprintf("Cannot generate gameid, defaulting to Homebrew\n");
                         strcpy(buffer, "Homebrew");
                     }
 	            }
 	        } else {
+	            kprintf("Boot from disc and no SFO found? o.O, defaulting to Homebrew\n");
 	            strcpy(buffer, "Homebrew");
 	        }
 	    }
 	}
 }
 
-void create_gamedir(char *buffer) {
+void create_gamedir(char *buffer, const char *argp) {
     int model = sceKernelGetModel();
-	strcpy(buffer, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
-	sceIoMkdir(buffer, 0777);
-	strcat(buffer,"/");
-	get_gameid(buffer + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS)+1);
-	sceIoMkdir(buffer, 0777);
+    int force_ms0 = 0;
+    if(model == PSP_MODEL_GO) {
+        create_path(buffer, argp, "prxshot.ini");
+        force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, buffer);
+    }
+    strcpy(buffer, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
+    if(force_ms0) {
+        //Make sure that the /PSP directory exists first
+        kprintf("PSPGoUseMS0 enabled, forcing ms0\n");
+        sceIoMkdir("ms0:/PSP", 0777);
+        memcpy(buffer, "ms0", 3);
+    }
+    sceIoMkdir(buffer, 0777);
+    strcat(buffer,"/");
+    get_gameid(buffer + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS)+1);
+    kprintf("Creating directory %s\n", buffer);
+    sceIoMkdir(buffer, 0777);
 }
 
 int pbp_thread_start(SceSize args, void *argp) {
@@ -163,36 +178,45 @@ int pbp_thread_start(SceSize args, void *argp) {
 // and creates a payload in the user stack
 void syscall_save_argp(int args, const char *argp, void *user_stack) {
     int k1 = pspSdkSetK1(0);
-    if(args <= sizeof(eboot_path))
+    if(argp && args <= sizeof(eboot_path)) {
+        kprintf("Saving path: %s\n", argp);
         memcpy(eboot_path, argp, args);
-    else
+        eboot_path[args] = 0;
+    } else {
         eboot_path[0] = 0;
-    create_stack_payload(user_stack);
+    }
+    if(user_stack)
+        create_stack_payload(user_stack);
     sceKernelSignalSema(sema, 1);
     pspSdkSetK1(k1);
 }
 
 int thread_start(SceSize args, void *argp) {
     // read config file
+    kprintf("PRXshot main thread started\n");
     create_path(eboot_path, argp, "prxshot.ini");
     int key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, eboot_path);
+    kprintf("Read ScreenshotKey: %08X\n", key_button);
     ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", picture, sizeof(picture), eboot_path);
+    kprintf("Read ScreenshotName: %s\n", picture);
     // clear buffer
-    eboot_path[0] = 0;
+    memset(eboot_path, 0, sizeof(eboot_path));
     if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH && sceKernelBootFrom() == PSP_BOOT_MS) {
+        kprintf("Booting from Memory Stick/Internal Storage\n");
         hook_module_start();
         sema = sceKernelCreateSema("hook-sema", 0, 0, 1, NULL);
     }
 	int picture_id = 0;
 	int directory_created = 0;
 	int pbp_created = 0;
+	kprintf("Entering screenshot loop\n");
 	while(picture_id >= 0) {
 		SceCtrlData pad;
 		sceCtrlPeekBufferPositive(&pad, 1);
 		if(pad.Buttons) {
 			if((pad.Buttons & key_button) == key_button) {
 				if(!directory_created) {
-					create_gamedir(directory);
+					create_gamedir(directory, argp);
 					picture_id = update_filename(directory, imagefile);
 					directory_created = 1;
 				}
@@ -215,6 +239,7 @@ int thread_start(SceSize args, void *argp) {
 }
 
 int module_start(SceSize argc, void *argp) {
+    kprintf(">>>>>>>>>>>>>>>>>\nPRXshot started\n");
 	SceUID thid = sceKernelCreateThread("prxshot", thread_start, 0x10, 4096, 0, 0);
 	if(thid >= 0)
 		sceKernelStartThread(thid, argc, argp);

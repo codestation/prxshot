@@ -47,6 +47,7 @@ int syscall_number = -1;
 void prxshot_restore_patch() {
     int k1 = pspSdkSetK1(0);
     // restore the patched opcodes in the module_start func
+    kprintf("Restoring opcodes of module_start\n");
     _sw(opcode_a, (u32)start_addr);
     _sw(opcode_b, (u32)start_addr + 4);
     _sw(opcode_b, (u32)start_addr + 8);
@@ -65,6 +66,7 @@ void create_stack_payload(void *user_stack) {
     sceKernelDcacheWritebackInvalidateRange(start_addr+8, 4);
     sceKernelIcacheInvalidateRange(start_addr+8, 4);
     // copy the payload code into the user stack
+    kprintf("Creating payload in user stack\n");
     memcpy(payload_addr, prxshot_stack_func, payload_size);
     // create a syscall to restore the module_start
     MAKE_SYSCALL((u32)payload_addr, sceKernelQuerySystemCall(prxshot_restore_patch));
@@ -76,9 +78,22 @@ void create_stack_payload(void *user_stack) {
     sceKernelIcacheInvalidateRange(payload_addr, payload_size);
 }
 
+void syscall_save_argp(int args, const char *argp, void *user_stack);
+
 int module_start_handler(SceModule2 *module) {
     // find first module loaded into user memory address
     // excluding the sceKernelLibrary module
+    kprintf("Load module: %s\n", module->modname)
+    if(!module_found && sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_POPS) {
+        module_found = 1;
+        const char *path = sceKernelInitFileName();
+        int len = 0;
+        if(path) {
+            len = strlen(path);
+            kprintf("POPS found: %s\n", path);
+        }
+        syscall_save_argp(len, path, NULL);
+    }
     if(!module_found &&
             (module->text_addr & 0x80000000) != 0x80000000 &&
             strcmp(module->modname, "sceKernelLibrary") &&
@@ -91,6 +106,7 @@ int module_start_handler(SceModule2 *module) {
             // blacklist the Prometheus iso loader
             strcmp(module->modname, "PLoaderGUI")) {
         module_found = 1;
+        kprintf("Game found: %s\n", module->modname);
         // get the entry address
         start_addr = module->module_start;
         // get the original opcodes before patching them
@@ -98,6 +114,7 @@ int module_start_handler(SceModule2 *module) {
         opcode_b = _lw((u32)start_addr+4);
         opcode_c = _lw((u32)start_addr+8);
         // make an opcode to store the $sp register into $a2
+        kprintf("Patching module_start\n");
         _sw(MV_A2SP_OPCODE, (u32)start_addr);
         // patch the module_start with a syscall to our code
         MAKE_SYSCALL((u32)start_addr+4, sceKernelQuerySystemCall(prxshot_save_argp));
@@ -109,5 +126,6 @@ int module_start_handler(SceModule2 *module) {
 }
 
 void hook_module_start() {
+    kprintf("Hook created\n");
     previous = sctrlHENSetStartModuleHandler(module_start_handler);
 }

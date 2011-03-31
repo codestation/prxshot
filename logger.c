@@ -20,6 +20,8 @@
 #include <pspiofilemgr.h>
 #include "logger.h"
 
+#ifdef KPRINTF_ENABLED
+
 char buffer_log[256];
 
 int kwrite(const char *path, void *buffer, int buflen) {
@@ -32,3 +34,5 @@ int kwrite(const char *path, void *buffer, int buflen) {
     }
     return written;
 }
+
+#endif
