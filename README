@@ -1,4 +1,4 @@
-prxshot v0.2.2 - Codestation
+prxshot v0.2.3 - Codestation
 
 This Homebrew is an entry for the PSP Genesis competition 2011,
 sponsored by npt, psp-hacks.com, pspgen.com, pspslimhacks.com,
@@ -35,6 +35,12 @@ dimensions)
 * prxshot.ini: configuration file
 
 Changelog:
+v0.2.3:
+Added support for eLoader (1.50 eboot loader)
+Recreate the XMB folder if is deleted.
+Removed the update cache after the screenshot as it causes trouble
+with game categories.
+Added more debug messages.
 v0.2.2:
 Added support for POPS (PSone games support).
 Added support for storing the screenshots into the M2 in the PSPGo.
