@@ -45,7 +45,7 @@ int generate_gameid(const char *path, char *id_buf, int id_size) {
     kprintf("Opening %s\n", path);
     SceUID fd = sceIoOpen(path, PSP_O_RDONLY, 0777);
     if(fd >= 0) {
-        kprintf("Opened %s\n", path)
+        kprintf("Opened %s\n", path);
         sceIoRead(fd, &pbp_data, sizeof(struct pbp));
         int size = pbp_data.icon0_offset - pbp_data.sfo_offset;
         res = read_sfo_title(fd, buffer, size, title, sizeof(title));
@@ -106,30 +106,39 @@ void *create_path(void *buffer, const char *argp, const char *file) {
 
 void write_pbp(const char *path, const char *eboot, void *argp) {
     if(!buffer)
-        buffer = kalloc(BUFFER_SIZE + 63, "pbp_blk", &buffer_id, PSP_MEMORY_PARTITION_KERNEL, PSP_SMEM_Low);
-    if(!buffer)
+        buffer = kalloc(BUFFER_SIZE, "pbp_blk", &buffer_id, PSP_MEMORY_PARTITION_KERNEL, PSP_SMEM_Low);
+    if(!buffer) {
+        kprintf("Cannot allocate memory\n");
         return;
+    }
     struct pbp pbp_data;
     memset(&pbp_data, 0, sizeof(struct pbp));
     char pbpname[48];
     SceUID sfo_fd;
     strcpy(pbpname, path);
     strcat(pbpname,"/PSCM.DAT");
+    kprintf("Trying to open %s\n", pbpname);
     SceUID pbp_fd = sceIoOpen(pbpname, PSP_O_RDWR | PSP_O_CREAT | PSP_O_EXCL, 0777);
-    if(pbp_fd < 0)
+    if(pbp_fd < 0) {
+        kprintf("Failed to create %s: %08X\n", pbpname, pbp_fd);
         return;
+    }
     int api = sceKernelInitKeyConfig();
     if(eboot) {
+        kprintf("Eboot found, opening %s\n", eboot);
         sfo_fd = sceIoOpen(eboot, PSP_O_RDONLY, 0777);
     } else {
         if(api == PSP_INIT_KEYCONFIG_VSH) {
             create_path(buffer, argp, "xmb.sfo");
+            kprintf("VSH found, opening %s\n", (char *)buffer);
             sfo_fd = sceIoOpen(buffer, PSP_O_RDONLY, 0777);
         } else {
+            kprintf("UMD found, opening %s\n", SFO_PATH);
             sfo_fd = sceIoOpen(SFO_PATH, PSP_O_RDONLY, 0777);
         }
     }
     if(sfo_fd < 0) {
+        kprintf("failed to open the file\n");
         return;
     }
     SceSize size;
@@ -142,7 +151,7 @@ void write_pbp(const char *path, const char *eboot, void *argp) {
     }
     // create SFO data
     if(size > (BUFFER_SIZE - SFO_SIZE)) {
-        //kprintf("SFO size is too big: %i bytes\n", size);
+        kprintf("SFO size is too big: %i bytes\n", size);
         return;
     }
     memcpy(pbp_data.id, "\0PBP", 4);

@@ -55,6 +55,7 @@ char picture[32];
 
 SceUID last_id = 0;
 int game_found = 0;
+int sema_wait = 0;
 SceUID sema = 0;
 
 void *get_mem(SceSize size, int *id) {
@@ -111,9 +112,16 @@ int update_filename(const char *directory, char *buffer) {
 
 void get_gameid(char *buffer) {
     char gameid[12];
+    // wait for the sema signal so the game is loaded
+    if(sema_wait) {
+        sceKernelWaitSema(sema, 1, NULL);
+        sema_wait = 0;
+    }
     // check if an UMD (or ISO) is present
+    kprintf("Trying to open %s\n", GAMEID_DIR);
 	SceUID fd = sceIoOpen(GAMEID_DIR, PSP_O_RDONLY, 0777);
 	if(fd >= 0) {
+	    kprintf("UMD/ISO found\n");
 		game_found = 1;
 		sceIoRead(fd, gameid, 10);
 		gameid[10] = 0;
@@ -129,7 +137,6 @@ void get_gameid(char *buffer) {
 	        strcpy(buffer,"XMB");
 	    } else {
 	        if(sceKernelBootFrom() == PSP_BOOT_MS) {
-	            sceKernelWaitSema(sema, 1, NULL);
 	            if(*eboot_path) {
                     if(generate_gameid(eboot_path, gameid, sizeof(gameid))) {
                         strcpy(buffer, gameid);
@@ -168,9 +175,19 @@ void create_gamedir(char *buffer, const char *argp) {
     sceIoMkdir(buffer, 0777);
 }
 
+// this causes problems to game categories D:
+//void update_xmb_cache() {
+//    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
+//        sceIoDevctl("fatms0:", 0x0240D81E, NULL, 0, NULL, 0);
+//    }
+//}
+
 int pbp_thread_start(SceSize args, void *argp) {
+    kprintf("pbp_thread_start called\n");
     char *str = eboot_path[0] == 0 ? NULL : eboot_path;
     write_pbp(directory, str, argp);
+    // refresh the cache after creating the PSCM.DAT
+    //update_xmb_cache();
     return 0;
 }
 
@@ -204,6 +221,7 @@ int thread_start(SceSize args, void *argp) {
     if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH && sceKernelBootFrom() == PSP_BOOT_MS) {
         kprintf("Booting from Memory Stick/Internal Storage\n");
         hook_module_start();
+        sema_wait = 1;
         sema = sceKernelCreateSema("hook-sema", 0, 0, 1, NULL);
     }
 	int picture_id = 0;
@@ -219,8 +237,25 @@ int thread_start(SceSize args, void *argp) {
 					create_gamedir(directory, argp);
 					picture_id = update_filename(directory, imagefile);
 					directory_created = 1;
+				} else {
+				    // recreate the XMB screenshot directory if is deleted
+				    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
+                        SceUID dfd = sceIoDopen(directory);
+                        if(dfd >= 0) {
+                            sceIoDclose(dfd);
+                        } else {
+                            sceIoMkdir(directory, 0777);
+                            // create the PSCM.DAT again after the screenshot
+                            pbp_created = 0;
+                        }
+				    }
 				}
-				take_shot(imagefile);
+				kprintf("Taking shot\n");
+				if(take_shot(imagefile) == 0) {
+				    kprintf("Screenshot OK\n");
+				} else {
+				    kprintf("Screenshot fail\n");
+				}
 				//update the filename and wait for the next shot
 				picture_id = update_filename(directory, imagefile);
 				//launch a thread after the first shot to create the PSCM.DAT
@@ -230,9 +265,8 @@ int thread_start(SceSize args, void *argp) {
 				        sceKernelStartThread(thid, args, argp);
 				    }
 				    pbp_created = 1;
-				}
-				if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
-					sceIoDevctl("fatms0:", 0x0240D81E, NULL, 0, NULL, 0);
+				//} else {
+				//    update_xmb_cache();
 				}
 			}
 		}

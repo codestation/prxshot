@@ -106,9 +106,12 @@ int module_start_handler(SceModule2 *module) {
             // blacklist the Prometheus iso loader
             strcmp(module->modname, "PLoaderGUI")) {
         module_found = 1;
-        kprintf("Game found: %s\n", module->modname);
         // get the entry address
         start_addr = module->module_start;
+        // very old eboots that doesn't have module_start entry point
+        if((u32)start_addr == 0xFFFFFFFF)
+            start_addr = (void *)module->entry_addr;
+        kprintf("Game found: %s, addr: %08X\n", module->modname, (u32)start_addr);
         // get the original opcodes before patching them
         opcode_a = _lw((u32)start_addr);
         opcode_b = _lw((u32)start_addr+4);
