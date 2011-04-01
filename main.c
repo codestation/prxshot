@@ -49,12 +49,14 @@ PSP_HEAP_SIZE_KB(8);
 #define BMP_SIZE 391734
 
 char eboot_path[128];
+char ini_path[128];
 char imagefile[64];
 char directory[32];
 char picture[32];
 
 SceUID last_id = 0;
 int game_found = 0;
+int clear_cache = -1;
 int sema_wait = 0;
 SceUID sema = 0;
 
@@ -158,8 +160,7 @@ void create_gamedir(char *buffer, const char *argp) {
     int model = sceKernelGetModel();
     int force_ms0 = 0;
     if(model == PSP_MODEL_GO) {
-        create_path(buffer, argp, "prxshot.ini");
-        force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, buffer);
+        force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, ini_path);
     }
     strcpy(buffer, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
     if(force_ms0) {
@@ -176,18 +177,21 @@ void create_gamedir(char *buffer, const char *argp) {
 }
 
 // this causes problems to game categories D:
-//void update_xmb_cache() {
-//    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
-//        sceIoDevctl("fatms0:", 0x0240D81E, NULL, 0, NULL, 0);
-//    }
-//}
+void update_xmb_cache() {
+    if(clear_cache < 0) {
+        clear_cache = ini_getbool("General", "XMBClearCache", 0, ini_path);
+    }
+    if(clear_cache && sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
+        sceIoDevctl("fatms0:", 0x0240D81E, NULL, 0, NULL, 0);
+    }
+}
 
 int pbp_thread_start(SceSize args, void *argp) {
     kprintf("pbp_thread_start called\n");
     char *str = eboot_path[0] == 0 ? NULL : eboot_path;
     write_pbp(directory, str, argp);
     // refresh the cache after creating the PSCM.DAT
-    //update_xmb_cache();
+    update_xmb_cache();
     return 0;
 }
 
@@ -211,7 +215,7 @@ void syscall_save_argp(int args, const char *argp, void *user_stack) {
 int thread_start(SceSize args, void *argp) {
     // read config file
     kprintf("PRXshot main thread started\n");
-    create_path(eboot_path, argp, "prxshot.ini");
+    create_path(ini_path, argp, "prxshot.ini");
     int key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, eboot_path);
     kprintf("Read ScreenshotKey: %08X\n", key_button);
     ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", picture, sizeof(picture), eboot_path);
@@ -265,8 +269,8 @@ int thread_start(SceSize args, void *argp) {
 				        sceKernelStartThread(thid, args, argp);
 				    }
 				    pbp_created = 1;
-				//} else {
-				//    update_xmb_cache();
+				} else {
+				    update_xmb_cache();
 				}
 			}
 		}
