@@ -36,7 +36,7 @@
 #include "minIni.h"
 #include "logger.h"
 
-PSP_MODULE_INFO("prxshot", 0x1000, 1, 0);
+PSP_MODULE_INFO("prxshot", 0x1000, 0, 2);
 PSP_MAIN_THREAD_ATTR(0);
 PSP_HEAP_SIZE_KB(8);
 
@@ -180,8 +180,10 @@ void create_gamedir(char *buffer, const char *argp) {
 void update_xmb_cache() {
     if(clear_cache < 0) {
         clear_cache = ini_getbool("General", "XMBClearCache", 0, ini_path);
+        kprintf("Read XMBClearCache: %i\n", clear_cache);
     }
     if(clear_cache && sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
+        kprintf("Refreshing the xmb cache\n");
         sceIoDevctl("fatms0:", 0x0240D81E, NULL, 0, NULL, 0);
     }
 }
@@ -248,6 +250,7 @@ int thread_start(SceSize args, void *argp) {
                         if(dfd >= 0) {
                             sceIoDclose(dfd);
                         } else {
+                            kprintf("Recreating %s\n", directory);
                             sceIoMkdir(directory, 0777);
                             // create the PSCM.DAT again after the screenshot
                             pbp_created = 0;
