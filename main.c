@@ -218,9 +218,9 @@ int thread_start(SceSize args, void *argp) {
     // read config file
     kprintf("PRXshot main thread started\n");
     create_path(ini_path, argp, "prxshot.ini");
-    int key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, eboot_path);
+    int key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, ini_path);
     kprintf("Read ScreenshotKey: %08X\n", key_button);
-    ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", picture, sizeof(picture), eboot_path);
+    ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", picture, sizeof(picture), ini_path);
     kprintf("Read ScreenshotName: %s\n", picture);
     // clear buffer
     memset(eboot_path, 0, sizeof(eboot_path));
