@@ -35,6 +35,11 @@ dimensions)
 * prxshot.ini: configuration file
 
 Changelog:
+v0.2.4:
+[!]Fixed the bug introduced in 0.2.3 that didn't detect the settings
+in the .ini file.
+[!]Fixed bug with homebrew not properly detected in PSPGo using the
+internal storage.
 v0.2.3:
 [+]Added support for eLoader (1.50 eboot loader)
 [+]Recreate the XMB folder if is deleted.
