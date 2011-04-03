@@ -214,9 +214,44 @@ void syscall_save_argp(int args, const char *argp, void *user_stack) {
     pspSdkSetK1(k1);
 }
 
+#ifdef KPRINTF_ENABLED
+void bootinfo() {
+    int boot = sceKernelBootFrom();
+    int key = sceKernelInitKeyConfig();
+    switch(boot) {
+        case PSP_BOOT_MS:
+            kprintf("Booting from Memory Stick\n");
+            break;
+        case PSP_BOOT_DISC:
+            kprintf("Booting from UMD\n");
+            break;
+        case PSP_BOOT_FLASH:
+            kprintf("Booting from Flash\n");
+            break;
+        default:
+            kprintf("Booting from: %i\n", boot);
+    }
+    switch(key) {
+        case PSP_INIT_KEYCONFIG_GAME:
+            kprintf("Init mode: Game\n");
+            break;
+        case PSP_INIT_KEYCONFIG_VSH:
+            kprintf("Init mode: VSH\n");
+            break;
+        case PSP_INIT_KEYCONFIG_POPS:
+            kprintf("Init mode: POPS\n");
+            break;
+        default:
+            kprintf("Init mode: %i\n", key);
+        }
+}
+#endif
 int thread_start(SceSize args, void *argp) {
     // read config file
     kprintf("PRXshot main thread started\n");
+#ifdef KPRINTF_ENABLED
+    bootinfo();
+#endif
     create_path(ini_path, argp, "prxshot.ini");
     int key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, ini_path);
     kprintf("Read ScreenshotKey: %08X\n", key_button);
