@@ -158,17 +158,17 @@ void get_gameid(char *buffer) {
 
 void create_gamedir(char *buffer, const char *argp) {
     int model = sceKernelGetModel();
-    int force_ms0 = 0;
     if(model == PSP_MODEL_GO) {
-        force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, ini_path);
+        int force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, ini_path);
+        if(force_ms0) {
+            kprintf("PSPGoUseMS0 enabled, forcing ms0\n");
+            //Make sure that the /PSP directory exists first
+            sceIoMkdir("ms0:/PSP", 0777);
+            model = PSP_MODEL_SLIM;
+        }
     }
     strcpy(buffer, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
-    if(force_ms0) {
-        //Make sure that the /PSP directory exists first
-        kprintf("PSPGoUseMS0 enabled, forcing ms0\n");
-        sceIoMkdir("ms0:/PSP", 0777);
-        memcpy(buffer, "ms0", 3);
-    }
+    kprintf("Creating directory %s\n", buffer);
     sceIoMkdir(buffer, 0777);
     strcat(buffer,"/");
     get_gameid(buffer + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS)+1);
