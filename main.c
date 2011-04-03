@@ -138,7 +138,7 @@ void get_gameid(char *buffer) {
 	    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
 	        strcpy(buffer,"XMB");
 	    } else {
-	        if(sceKernelBootFrom() == PSP_BOOT_MS) {
+	        if(sceKernelBootFrom() != PSP_BOOT_DISC) {
 	            if(*eboot_path) {
                     if(generate_gameid(eboot_path, gameid, sizeof(gameid))) {
                         strcpy(buffer, gameid);
@@ -215,7 +215,7 @@ void syscall_save_argp(int args, const char *argp, void *user_stack) {
 }
 
 #ifdef KPRINTF_ENABLED
-void bootinfo() {
+void boot_info() {
     int boot = sceKernelBootFrom();
     int key = sceKernelInitKeyConfig();
     switch(boot) {
@@ -246,12 +246,15 @@ void bootinfo() {
         }
 }
 #endif
+
 int thread_start(SceSize args, void *argp) {
     // read config file
     kprintf("PRXshot main thread started\n");
+
 #ifdef KPRINTF_ENABLED
-    bootinfo();
+    boot_info();
 #endif
+
     create_path(ini_path, argp, "prxshot.ini");
     int key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, ini_path);
     kprintf("Read ScreenshotKey: %08X\n", key_button);
@@ -259,7 +262,7 @@ int thread_start(SceSize args, void *argp) {
     kprintf("Read ScreenshotName: %s\n", picture);
     // clear buffer
     memset(eboot_path, 0, sizeof(eboot_path));
-    if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH && sceKernelBootFrom() == PSP_BOOT_MS) {
+    if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH && sceKernelBootFrom() != PSP_BOOT_DISC) {
         kprintf("Booting from Memory Stick/Internal Storage\n");
         hook_module_start();
         sema_wait = 1;
