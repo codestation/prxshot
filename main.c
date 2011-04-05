@@ -31,12 +31,10 @@
 #include "kalloc.h"
 #include "bitmap.h"
 #include "pbp.h"
-#include "payload.h"
-#include "hook_module.h"
 #include "minIni.h"
 #include "logger.h"
 
-PSP_MODULE_INFO("prxshot", 0x1000, 0, 2);
+PSP_MODULE_INFO("prxshot", 0x1000, 0, 3);
 PSP_MAIN_THREAD_ATTR(0);
 PSP_HEAP_SIZE_KB(8);
 
@@ -50,15 +48,22 @@ PSP_HEAP_SIZE_KB(8);
 
 char eboot_path[128];
 char ini_path[128];
-char imagefile[64];
-char directory[32];
-char picture[32];
+char screenshot_filename[64];
+char screenshot_basedir[32];
 
 SceUID last_id = 0;
 int game_found = 0;
 int clear_cache = -1;
-int sema_wait = 0;
-SceUID sema = 0;
+
+int directory_ready = 0;
+
+// previous module handler
+STMOD_HANDLER previous = NULL;
+int module_found = 0;
+
+int key_button;
+char picture[32];
+int force_ms0;
 
 void *get_mem(SceSize size, int *id) {
     void *mem = NULL;
@@ -97,13 +102,13 @@ int take_shot(const char *path) {
 	return -1;
 }
 
-int update_filename(const char *directory, char *buffer) {
+int update_filename(const char *basedir, char *filename) {
 	int end = last_id;
 	do {
-		sprintf(buffer, picture, directory, last_id++);
+		sprintf(filename, picture, basedir, last_id++);
 		if(last_id == MAX_IMAGES)
 			last_id = 0;
-		SceUID fd = sceIoOpen(buffer, PSP_O_RDONLY, 0777);
+		SceUID fd = sceIoOpen(filename, PSP_O_RDONLY, 0777);
 		if(fd < 0) {
 			return last_id;
 		}
@@ -112,13 +117,8 @@ int update_filename(const char *directory, char *buffer) {
 	return -1;
 }
 
-void get_gameid(char *buffer) {
+int get_gameid(char *buffer) {
     char gameid[12];
-    // wait for the sema signal so the game is loaded
-    if(sema_wait) {
-        sceKernelWaitSema(sema, 1, NULL);
-        sema_wait = 0;
-    }
     // check if an UMD (or ISO) is present
     kprintf("Trying to open %s\n", GAMEID_DIR);
 	SceUID fd = sceIoOpen(GAMEID_DIR, PSP_O_RDONLY, 0777);
@@ -131,49 +131,35 @@ void get_gameid(char *buffer) {
 		strcpy(buffer, gameid);
 		if(gameid[4] == '-')
 		    strcpy(buffer + 4, gameid + 5);
-	    // sets eboot_path to 0 as it doesn't get initialized on
-	    // prxshot_set_argp because is never called for UMD/ISO
-	    eboot_path[0] = 0;
-	} else {
-	    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
-	        strcpy(buffer,"XMB");
-	    } else {
-	        if(sceKernelBootFrom() != PSP_BOOT_DISC) {
-	            if(*eboot_path) {
-                    if(generate_gameid(eboot_path, gameid, sizeof(gameid))) {
-                        strcpy(buffer, gameid);
-                        game_found = 1;
-                    } else {
-                        kprintf("Cannot generate gameid, defaulting to Homebrew\n");
-                        strcpy(buffer, "Homebrew");
-                    }
-	            }
-	        } else {
-	            kprintf("Boot from disc and no SFO found? o.O, defaulting to Homebrew\n");
-	            strcpy(buffer, "Homebrew");
-	        }
+		return 1;
+	} else if(sceKernelBootFrom() != PSP_BOOT_DISC) {
+	    if(*eboot_path) {
+            if(generate_gameid(eboot_path, gameid, sizeof(gameid))) {
+                strcpy(buffer, gameid);
+                game_found = 1;
+                return 1;
+            }
 	    }
 	}
+	return 0;
 }
 
-void create_gamedir(char *buffer, const char *argp) {
-    int model = sceKernelGetModel();
-    if(model == PSP_MODEL_GO) {
-        int force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, ini_path);
-        if(force_ms0) {
-            kprintf("PSPGoUseMS0 enabled, forcing ms0\n");
-            //Make sure that the /PSP directory exists first
-            sceIoMkdir("ms0:/PSP", 0777);
+void build_gamedir(char *dir, const char *argp) {
+    if(!directory_ready) {
+        int model = sceKernelGetModel();
+        if(force_ms0)
             model = PSP_MODEL_SLIM;
+        strcpy(dir, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
+        strcat(dir,"/");
+        if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
+            strcat(dir, "XMB");
+        } else if(!get_gameid(dir + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS)+1)) {
+            strcat(dir, "Homebrew");
         }
+        kprintf("Creating directory %s\n", dir);
+        sceIoMkdir(dir, 0777);
+        directory_ready = 1;
     }
-    strcpy(buffer, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
-    kprintf("Creating directory %s\n", buffer);
-    sceIoMkdir(buffer, 0777);
-    strcat(buffer,"/");
-    get_gameid(buffer + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS)+1);
-    kprintf("Creating directory %s\n", buffer);
-    sceIoMkdir(buffer, 0777);
 }
 
 // this causes problems to game categories D:
@@ -190,28 +176,50 @@ void update_xmb_cache() {
 
 int pbp_thread_start(SceSize args, void *argp) {
     kprintf("pbp_thread_start called\n");
-    char *str = eboot_path[0] == 0 ? NULL : eboot_path;
-    write_pbp(directory, str, argp);
+    char *str = *eboot_path ? eboot_path : NULL;
+    write_pbp(screenshot_basedir, str, argp);
     // refresh the cache after creating the PSCM.DAT
     update_xmb_cache();
     return 0;
 }
 
-// function to be called into the module_start code, it saves the argp
-// and creates a payload in the user stack
-void syscall_save_argp(int args, const char *argp, void *user_stack) {
-    int k1 = pspSdkSetK1(0);
-    if(argp && args <= sizeof(eboot_path)) {
-        kprintf("Saving path: %s\n", argp);
-        memcpy(eboot_path, argp, args);
-        eboot_path[args] = 0;
-    } else {
-        eboot_path[0] = 0;
+int module_start_handler(SceModule2 *module) {
+    if(!module_found) {
+        const char *path = NULL;
+        if(*eboot_path) {
+            path = sceKernelInitFileName();
+            if(path) {
+                strcpy(eboot_path, path);
+            }
+        }
+        if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_POPS) {
+            kprintf("POPS found: %s\n", path);
+            directory_ready = 0;
+            module_found = 1;
+        } else if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_GAME) {
+            // user module found
+            if((module->text_addr & 0x80000000) != 0x80000000) {
+                if(!strcmp(module->modname, "aLoader") &&
+                // blacklist open idea loader
+                !strcmp(module->modname, "OpenIdeaController") &&
+                !strcmp(module->modname, "ISO Loader Eboot") &&
+                // blacklist the Prometheus iso loader
+                !strcmp(module->modname, "PLoaderGUI")) {
+                    // loader found, so a ISO has been loaded
+                    module_found = 1;
+                    path = NULL;
+                } else {
+                    if(strcmp(module->modname, "sceKernelLibrary")) {
+                        // eboot found
+                        module_found = 1;
+                        directory_ready = 0;
+                    }
+                }
+            }
+            module_found = 1;
+        }
     }
-    if(user_stack)
-        create_stack_payload(user_stack);
-    sceKernelSignalSema(sema, 1);
-    pspSdkSetK1(k1);
+    return previous ? previous(module) : 0;
 }
 
 #ifdef KPRINTF_ENABLED
@@ -247,29 +255,50 @@ void boot_info() {
 }
 #endif
 
-int thread_start(SceSize args, void *argp) {
-    // read config file
-    kprintf("PRXshot main thread started\n");
-
-#ifdef KPRINTF_ENABLED
-    boot_info();
-#endif
-
+void read_settings(const char *argp) {
     create_path(ini_path, argp, "prxshot.ini");
-    int key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, ini_path);
+    key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, ini_path);
     kprintf("Read ScreenshotKey: %08X\n", key_button);
     ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", picture, sizeof(picture), ini_path);
     kprintf("Read ScreenshotName: %s\n", picture);
+    force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, ini_path);
+    if(force_ms0) {
+        kprintf("PSPGoUseMS0 enabled, forcing ms0\n");
+        //Make sure that the /PSP directory exists first
+        sceIoMkdir("ms0:/PSP", 0777);
+    }
+}
+
+int refresh_directory(const char *dir) {
+    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
+        SceUID dfd = sceIoDopen(dir);
+        if(dfd >= 0) {
+            sceIoDclose(dfd);
+            return 0;
+        } else {
+            kprintf("Recreating %s\n", dir);
+            sceIoMkdir(dir, 0777);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int thread_start(SceSize args, void *argp) {
+    // read config file
+    kprintf("PRXshot main thread started\n");
+#ifdef KPRINTF_ENABLED
+    boot_info();
+#endif
+    // get custom settings from prxshot.ini
+    read_settings(argp);
     // clear buffer
     memset(eboot_path, 0, sizeof(eboot_path));
     if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH && sceKernelBootFrom() != PSP_BOOT_DISC) {
         kprintf("Booting from Memory Stick/Internal Storage\n");
-        hook_module_start();
-        sema_wait = 1;
-        sema = sceKernelCreateSema("hook-sema", 0, 0, 1, NULL);
+        previous = sctrlHENSetStartModuleHandler(module_start_handler);
     }
 	int picture_id = 0;
-	int directory_created = 0;
 	int pbp_created = 0;
 	kprintf("Entering screenshot loop\n");
 	while(picture_id >= 0) {
@@ -277,32 +306,18 @@ int thread_start(SceSize args, void *argp) {
 		sceCtrlPeekBufferPositive(&pad, 1);
 		if(pad.Buttons) {
 			if((pad.Buttons & key_button) == key_button) {
-				if(!directory_created) {
-					create_gamedir(directory, argp);
-					picture_id = update_filename(directory, imagefile);
-					directory_created = 1;
-				} else {
-				    // recreate the XMB screenshot directory if is deleted
-				    if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
-                        SceUID dfd = sceIoDopen(directory);
-                        if(dfd >= 0) {
-                            sceIoDclose(dfd);
-                        } else {
-                            kprintf("Recreating %s\n", directory);
-                            sceIoMkdir(directory, 0777);
-                            // create the PSCM.DAT again after the screenshot
-                            pbp_created = 0;
-                        }
-				    }
-				}
+			    build_gamedir(screenshot_basedir, argp);
+			    picture_id = update_filename(screenshot_basedir, screenshot_filename);
+				// recreate the XMB screenshot directory if is deleted
+			    pbp_created = refresh_directory(screenshot_basedir) ? 0 : 1;
 				kprintf("Taking shot\n");
-				if(take_shot(imagefile) == 0) {
+				if(take_shot(screenshot_filename) == 0) {
 				    kprintf("Screenshot OK\n");
 				} else {
 				    kprintf("Screenshot fail\n");
 				}
 				//update the filename and wait for the next shot
-				picture_id = update_filename(directory, imagefile);
+				picture_id = update_filename(screenshot_basedir, screenshot_filename);
 				//launch a thread after the first shot to create the PSCM.DAT
 				if(!pbp_created) {
 				    SceUID thid = sceKernelCreateThread("pbp_thread", pbp_thread_start, 0x20, 4096, 0, 0);
