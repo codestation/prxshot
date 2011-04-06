@@ -28,6 +28,7 @@
 #ifndef KPRINTF_ENABLED
 
 #define kprintf(format, ...)
+//#define kprintf(format, ...) printf(format, ## __VA_ARGS__)
 
 #else
 

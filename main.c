@@ -38,7 +38,6 @@ PSP_MODULE_INFO("prxshot", 0x1000, 0, 3);
 PSP_MAIN_THREAD_ATTR(0);
 PSP_HEAP_SIZE_KB(8);
 
-
 #define PICTURE_DIR_MS "ms0:/PSP/SCREENSHOT"
 #define PICTURE_DIR_GO "ef0:/PSP/SCREENSHOT"
 #define GAMEID_DIR "disc0:/UMD_DATA.BIN"
@@ -50,20 +49,17 @@ char eboot_path[128];
 char ini_path[128];
 char screenshot_filename[64];
 char screenshot_basedir[32];
+char picture[32];
 
 SceUID last_id = 0;
 int game_found = 0;
-int clear_cache = -1;
-
 int directory_ready = 0;
-
-// previous module handler
 STMOD_HANDLER previous = NULL;
 int module_found = 0;
-
+int umd_need_gameid = 0;
 int key_button;
-char picture[32];
 int force_ms0;
+int clear_cache;
 
 void *get_mem(SceSize size, int *id) {
     void *mem = NULL;
@@ -117,57 +113,74 @@ int update_filename(const char *basedir, char *filename) {
 	return -1;
 }
 
-int get_gameid(char *buffer) {
+int get_eboot_gameid(char *buffer) {
     char gameid[12];
-    // check if an UMD (or ISO) is present
-    kprintf("Trying to open %s\n", GAMEID_DIR);
-	SceUID fd = sceIoOpen(GAMEID_DIR, PSP_O_RDONLY, 0777);
-	if(fd >= 0) {
-	    kprintf("UMD/ISO found\n");
-		game_found = 1;
-		sceIoRead(fd, gameid, 10);
-		gameid[10] = 0;
-		sceIoClose(fd);
-		strcpy(buffer, gameid);
-		if(gameid[4] == '-')
-		    strcpy(buffer + 4, gameid + 5);
-		return 1;
-	} else if(sceKernelBootFrom() != PSP_BOOT_DISC) {
-	    if(*eboot_path) {
-            if(generate_gameid(eboot_path, gameid, sizeof(gameid))) {
-                strcpy(buffer, gameid);
-                game_found = 1;
-                return 1;
-            }
-	    }
+    if(*eboot_path) {
+	    kprintf("using %s as eboot path\n", eboot_path);
+        if(generate_gameid(eboot_path, gameid, sizeof(gameid))) {
+            kprintf("Got gameid: %s\n", gameid);
+            strcpy(buffer, gameid);
+            game_found = 1;
+            return 1;
+        }
 	}
 	return 0;
 }
 
-void build_gamedir(char *dir, const char *argp) {
+int get_umd_gameid(char *buffer) {
+    char gameid[12];
+    kprintf("Trying to open %s\n", GAMEID_DIR);
+    SceUID fd = sceIoOpen(GAMEID_DIR, PSP_O_RDONLY, 0777);
+    if(fd >= 0) {
+        kprintf("UMD/ISO found\n");
+        game_found = 1;
+        sceIoRead(fd, gameid, 10);
+        gameid[10] = 0;
+        sceIoClose(fd);
+        strcpy(buffer, gameid);
+        if(gameid[4] == '-')
+            strcpy(buffer + 4, gameid + 5);
+        return 1;
+    }
+    return 0;
+}
+
+int build_gamedir(char *dir, const char *argp) {
+    char gameid[12];
+    *gameid = '\0';
+    if(umd_need_gameid) {
+        if(get_umd_gameid(gameid)) {
+            *eboot_path = '\0';
+            umd_need_gameid = 0;
+            directory_ready = 0;
+        }
+    }
     if(!directory_ready) {
+        directory_ready = 1;
         int model = sceKernelGetModel();
+        kprintf("Directory doesn't exists or is outdated\n");
         if(force_ms0)
             model = PSP_MODEL_SLIM;
         strcpy(dir, model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS);
+        kprintf("Creating base directory %s\n", dir);
+        sceIoMkdir(dir, 0777);
         strcat(dir,"/");
         if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
             strcat(dir, "XMB");
-        } else if(!get_gameid(dir + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS)+1)) {
+        } else if(*gameid) {
+            strcat(dir, gameid);
+        } else if(!get_eboot_gameid(dir + strlen(model == PSP_MODEL_GO ? PICTURE_DIR_GO : PICTURE_DIR_MS)+1)) {
             strcat(dir, "Homebrew");
         }
         kprintf("Creating directory %s\n", dir);
         sceIoMkdir(dir, 0777);
-        directory_ready = 1;
+        return 1;
     }
+    return 0;
 }
 
 // this causes problems to game categories D:
 void update_xmb_cache() {
-    if(clear_cache < 0) {
-        clear_cache = ini_getbool("General", "XMBClearCache", 0, ini_path);
-        kprintf("Read XMBClearCache: %i\n", clear_cache);
-    }
     if(clear_cache && sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
         kprintf("Refreshing the xmb cache\n");
         sceIoDevctl("fatms0:", 0x0240D81E, NULL, 0, NULL, 0);
@@ -176,19 +189,20 @@ void update_xmb_cache() {
 
 int pbp_thread_start(SceSize args, void *argp) {
     kprintf("pbp_thread_start called\n");
-    char *str = *eboot_path ? eboot_path : NULL;
-    write_pbp(screenshot_basedir, str, argp);
+    write_pbp(screenshot_basedir, *eboot_path ? eboot_path : NULL, argp);
     // refresh the cache after creating the PSCM.DAT
     update_xmb_cache();
     return 0;
 }
 
 int module_start_handler(SceModule2 *module) {
+    kprintf("Loading: %s\n", module->modname);
     if(!module_found) {
         const char *path = NULL;
-        if(*eboot_path) {
+        if(!*eboot_path) {
             path = sceKernelInitFileName();
             if(path) {
+                kprintf("Got path: %s\n", path);
                 strcpy(eboot_path, path);
             }
         }
@@ -199,24 +213,27 @@ int module_start_handler(SceModule2 *module) {
         } else if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_GAME) {
             // user module found
             if((module->text_addr & 0x80000000) != 0x80000000) {
-                if(!strcmp(module->modname, "aLoader") &&
+                kprintf("User module found\n");
+                if(!strcmp(module->modname, "aLoader") ||
                 // blacklist open idea loader
-                !strcmp(module->modname, "OpenIdeaController") &&
-                !strcmp(module->modname, "ISO Loader Eboot") &&
+                !strcmp(module->modname, "OpenIdeaController") ||
+                !strcmp(module->modname, "ISO Loader Eboot") ||
                 // blacklist the Prometheus iso loader
                 !strcmp(module->modname, "PLoaderGUI")) {
                     // loader found, so a ISO has been loaded
+                    kprintf("Loader detected: %s\n", module->modname);
                     module_found = 1;
-                    path = NULL;
-                } else {
-                    if(strcmp(module->modname, "sceKernelLibrary")) {
-                        // eboot found
-                        module_found = 1;
-                        directory_ready = 0;
-                    }
+                    umd_need_gameid = 1;
+                    directory_ready = 0;
+                } else if(strcmp(module->modname, "sceKernelLibrary")) {
+                    // eboot found
+                    kprintf("EBOOT detected\n");
+                    module_found = 1;
+                    directory_ready = 0;
                 }
             }
-            module_found = 1;
+        } else {
+            kprintf("Unknown mode detected: %08X\n", sceKernelInitKeyConfig());
         }
     }
     return previous ? previous(module) : 0;
@@ -262,6 +279,8 @@ void read_settings(const char *argp) {
     ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", picture, sizeof(picture), ini_path);
     kprintf("Read ScreenshotName: %s\n", picture);
     force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, ini_path);
+    clear_cache = ini_getbool("General", "XMBClearCache", 0, ini_path);
+    kprintf("Read XMBClearCache: %i\n", clear_cache);
     if(force_ms0) {
         kprintf("PSPGoUseMS0 enabled, forcing ms0\n");
         //Make sure that the /PSP directory exists first
@@ -274,7 +293,6 @@ int refresh_directory(const char *dir) {
         SceUID dfd = sceIoDopen(dir);
         if(dfd >= 0) {
             sceIoDclose(dfd);
-            return 0;
         } else {
             kprintf("Recreating %s\n", dir);
             sceIoMkdir(dir, 0777);
@@ -297,6 +315,8 @@ int thread_start(SceSize args, void *argp) {
     if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH && sceKernelBootFrom() != PSP_BOOT_DISC) {
         kprintf("Booting from Memory Stick/Internal Storage\n");
         previous = sctrlHENSetStartModuleHandler(module_start_handler);
+    } else {
+        umd_need_gameid = 1;
     }
 	int picture_id = 0;
 	int pbp_created = 0;
@@ -306,11 +326,18 @@ int thread_start(SceSize args, void *argp) {
 		sceCtrlPeekBufferPositive(&pad, 1);
 		if(pad.Buttons) {
 			if((pad.Buttons & key_button) == key_button) {
-			    build_gamedir(screenshot_basedir, argp);
-			    picture_id = update_filename(screenshot_basedir, screenshot_filename);
+			    if(build_gamedir(screenshot_basedir, argp)) {
+			        last_id = 0;
+			        kprintf("New screenshot dir created, new pbp needed\n");
+			        picture_id = update_filename(screenshot_basedir, screenshot_filename);
+			        pbp_created = 0;
+			    }
 				// recreate the XMB screenshot directory if is deleted
-			    pbp_created = refresh_directory(screenshot_basedir) ? 0 : 1;
-				kprintf("Taking shot\n");
+			    if(refresh_directory(screenshot_basedir)) {
+			        last_id = 0;
+			        pbp_created = 0;
+			    }
+				kprintf("Taking shot: %s\n", screenshot_filename);
 				if(take_shot(screenshot_filename) == 0) {
 				    kprintf("Screenshot OK\n");
 				} else {
@@ -323,6 +350,8 @@ int thread_start(SceSize args, void *argp) {
 				    SceUID thid = sceKernelCreateThread("pbp_thread", pbp_thread_start, 0x20, 4096, 0, 0);
 				    if(thid >= 0) {
 				        sceKernelStartThread(thid, args, argp);
+				    } else {
+				        kprintf("Failed to start thread: %08X\n", thid);
 				    }
 				    pbp_created = 1;
 				} else {

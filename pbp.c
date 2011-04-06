@@ -142,6 +142,7 @@ void write_pbp(const char *path, const char *eboot, void *argp) {
         return;
     }
     SceSize size;
+    kprintf("Starting PSCM.DAT creation\n");
     if(eboot) {
         sceIoRead(sfo_fd, &pbp_data, sizeof(struct pbp));
         size = pbp_data.icon0_offset - pbp_data.sfo_offset;
@@ -149,6 +150,7 @@ void write_pbp(const char *path, const char *eboot, void *argp) {
         size = sceIoLseek32(sfo_fd, 0, PSP_SEEK_END);
         sceIoLseek32(sfo_fd, 0, PSP_SEEK_SET);
     }
+    kprintf("Got SFO size: %i bytes\n", size);
     // create SFO data
     if(size > (BUFFER_SIZE - SFO_SIZE)) {
         kprintf("SFO size is too big: %i bytes\n", size);
@@ -156,6 +158,7 @@ void write_pbp(const char *path, const char *eboot, void *argp) {
     }
     memcpy(pbp_data.id, "\0PBP", 4);
     pbp_data.sfo_offset = sizeof(struct pbp);
+    kprintf("Reading SFO\n");
     size = read_sfo(sfo_fd, buffer, size);
     if(!eboot) {
         sceIoClose(sfo_fd);
