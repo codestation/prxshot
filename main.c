@@ -45,6 +45,7 @@ PSP_HEAP_SIZE_KB(8);
 #define MAX_IMAGES 10000
 #define BMP_SIZE 391734
 
+// Total: 420 bytes of global data
 char eboot_path[128];
 char ini_path[128];
 char screenshot_filename[64];
@@ -153,6 +154,9 @@ int build_gamedir(char *dir, const char *argp) {
             *eboot_path = '\0';
             umd_need_gameid = 0;
             directory_ready = 0;
+            // get a custom key press for this specific game
+            key_button = ini_getlhex("CustomKeys", gameid, key_button, ini_path);
+            kprintf("Got custom key button for %s: %08X", gameid, key_button);
         }
     }
     if(!directory_ready) {
@@ -240,7 +244,7 @@ int module_start_handler(SceModule2 *module) {
 }
 
 #ifdef KPRINTF_ENABLED
-void boot_info() {
+inline void boot_info() {
     int boot = sceKernelBootFrom();
     int key = sceKernelInitKeyConfig();
     switch(boot) {
@@ -272,7 +276,7 @@ void boot_info() {
 }
 #endif
 
-void read_settings(const char *argp) {
+inline void read_settings(const char *argp) {
     create_path(ini_path, argp, "prxshot.ini");
     key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, ini_path);
     kprintf("Read ScreenshotKey: %08X\n", key_button);
@@ -288,7 +292,7 @@ void read_settings(const char *argp) {
     }
 }
 
-int refresh_directory(const char *dir) {
+inline int refresh_directory(const char *dir) {
     if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_VSH) {
         SceUID dfd = sceIoDopen(dir);
         if(dfd >= 0) {
@@ -318,15 +322,20 @@ int thread_start(SceSize args, void *argp) {
     } else {
         umd_need_gameid = 1;
     }
+    // current screenshot number
 	int picture_id = 0;
+	// flag for checking if the pbp needs to be created
 	int pbp_created = 0;
 	kprintf("Entering screenshot loop\n");
 	while(picture_id >= 0) {
 		SceCtrlData pad;
 		sceCtrlPeekBufferPositive(&pad, 1);
 		if(pad.Buttons) {
+		    // check if the button combination is correct
 			if((pad.Buttons & key_button) == key_button) {
+			    // attempt to create a screenshot directory
 			    if(build_gamedir(screenshot_basedir, argp)) {
+			        // if it was susseful then reset the image counter
 			        last_id = 0;
 			        kprintf("New screenshot dir created, new pbp needed\n");
 			        picture_id = update_filename(screenshot_basedir, screenshot_filename);
@@ -338,6 +347,7 @@ int thread_start(SceSize args, void *argp) {
 			        pbp_created = 0;
 			    }
 				kprintf("Taking shot: %s\n", screenshot_filename);
+				// take the screenshot
 				if(take_shot(screenshot_filename) == 0) {
 				    kprintf("Screenshot OK\n");
 				} else {
