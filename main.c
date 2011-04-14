@@ -54,6 +54,7 @@ char picture[32];
 char gameid[12];
 SceUID last_id = 0;
 int game_found = 0;
+int eboot_found = 0;
 int directory_ready = 0;
 STMOD_HANDLER previous = NULL;
 int module_found = 0;
@@ -221,6 +222,7 @@ int module_start_handler(SceModule2 *module) {
                     // eboot found
                     kprintf("EBOOT detected\n");
                     module_found = 1;
+                    eboot_found = 1;
                     directory_ready = 0;
                 }
             }
@@ -330,6 +332,15 @@ int thread_start(SceSize args, void *argp) {
 		            key_button = ini_getlhex("CustomKeys", gameid, key_button, ini_path);
 		            kprintf("Got custom key button for %s: %08X\n", gameid, key_button);
 		        }
+		    } else if(eboot_found) {
+		        if(read_gameid(eboot_path, gameid, sizeof(gameid))) {
+		            key_button = ini_getlhex("CustomKeys", gameid, key_button, ini_path);
+		            kprintf("Got custom key button for %s: %08X\n", gameid, key_button);
+		        }
+		        //FIXME: there isn't a way to migrate from the old generated
+		        //gameid for game eboots so we tell that we haven't found it
+		        *gameid = '\0';
+		        eboot_found = 0;
 		    }
 		    // check if the button combination is correct
 			if((pad.Buttons & key_button) == key_button) {

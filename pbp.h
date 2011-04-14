@@ -39,6 +39,7 @@ struct pbp {
 
 void write_pbp(const char *path, const char *eboot, void *argp);
 void *create_path(void *buffer, const char *argp, const char *file);
+int read_gameid(const char *path, char *id_buf, int id_size);
 int generate_gameid(const char *path, char *id_buf, int id_size);
 
 #endif /* PBP_H_ */
