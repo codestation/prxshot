@@ -3,7 +3,7 @@ prxshot v0.3 - Codestation
 This Homebrew is an entry for the PSP Genesis competition 2011,
 sponsored by npt, psp-hacks.com, pspgen.com, pspslimhacks.com,
 exophase.com, pspcustomfirmware.com, daxhordes.org, gamegaz.jp,
-and wololo.net
+xtreamlua.com and wololo.net
 
 This is a screenshot plugin that doesn't need to pause the game to take
 the capture (useful for online gaming) and classifies the images
@@ -70,7 +70,7 @@ Meaning of the options in the prxshot.ini:
  PSPFiler (reading the UMD_DATA.BIN in the iso/umd), cwcheat, etc, etc) and a
  screenshot key that you want to link to that game. Examples:
  
- ULJM08500 = 0x000009 (Monster Hunter 3rd game using SELECT + START to take
+ ULJM05800 = 0x000009 (Monster Hunter 3rd game using SELECT + START to take
                        the screenshot)
                        
  ULES01505 = 0x000101 (Dissidia Duodecim using SELECT + LTRIGGER to take
