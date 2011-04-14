@@ -51,7 +51,7 @@ char ini_path[128];
 char screenshot_filename[64];
 char screenshot_basedir[32];
 char picture[32];
-
+char gameid[12];
 SceUID last_id = 0;
 int game_found = 0;
 int directory_ready = 0;
@@ -147,18 +147,6 @@ int get_umd_gameid(char *buffer) {
 }
 
 int build_gamedir(char *dir, const char *argp) {
-    char gameid[12];
-    *gameid = '\0';
-    if(umd_need_gameid) {
-        if(get_umd_gameid(gameid)) {
-            *eboot_path = '\0';
-            umd_need_gameid = 0;
-            directory_ready = 0;
-            // get a custom key press for this specific game
-            key_button = ini_getlhex("CustomKeys", gameid, key_button, ini_path);
-            kprintf("Got custom key button for %s: %08X", gameid, key_button);
-        }
-    }
     if(!directory_ready) {
         directory_ready = 1;
         int model = sceKernelGetModel();
@@ -316,11 +304,13 @@ int thread_start(SceSize args, void *argp) {
     read_settings(argp);
     // clear buffer
     memset(eboot_path, 0, sizeof(eboot_path));
-    if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH && sceKernelBootFrom() != PSP_BOOT_DISC) {
-        kprintf("Booting from Memory Stick/Internal Storage\n");
-        previous = sctrlHENSetStartModuleHandler(module_start_handler);
-    } else {
-        umd_need_gameid = 1;
+    if(sceKernelInitKeyConfig() != PSP_INIT_KEYCONFIG_VSH) {
+        if(sceKernelBootFrom() != PSP_BOOT_DISC) {
+            kprintf("Booting from Memory Stick/Internal Storage\n");
+            previous = sctrlHENSetStartModuleHandler(module_start_handler);
+        }else {
+            umd_need_gameid = 1;
+        }
     }
     // current screenshot number
 	int picture_id = 0;
@@ -331,6 +321,16 @@ int thread_start(SceSize args, void *argp) {
 		SceCtrlData pad;
 		sceCtrlPeekBufferPositive(&pad, 1);
 		if(pad.Buttons) {
+		    if(umd_need_gameid) {
+		        if(get_umd_gameid(gameid)) {
+		            *eboot_path = '\0';
+		            umd_need_gameid = 0;
+		            directory_ready = 0;
+		            // get a custom key press for this specific game
+		            key_button = ini_getlhex("CustomKeys", gameid, key_button, ini_path);
+		            kprintf("Got custom key button for %s: %08X\n", gameid, key_button);
+		        }
+		    }
 		    // check if the button combination is correct
 			if((pad.Buttons & key_button) == key_button) {
 			    // attempt to create a screenshot directory
