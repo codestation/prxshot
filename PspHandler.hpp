@@ -42,12 +42,15 @@ public:
                     GAME = PSP_INIT_KEYCONFIG_GAME,
                     POPS = PSP_INIT_KEYCONFIG_POPS};
 
+    enum model_type {MODEL_PHAT, MODEL_SLIM, MODEL_GO = 4};
+
     PspHandler();
     inline int updated() { return loader_found ? loader_found-- : 0; }
     inline const char *getPBPPath() { return pbp_path; }
     inline game_type getGameType() { return type; }
     inline boot_type bootFrom() { return static_cast<boot_type>(sceKernelBootFrom()); }
     inline app_type applicationType() { return static_cast<app_type>(sceKernelInitKeyConfig()); }
+    inline model_type getModel() { return static_cast<model_type>(sceKernelGetModel()); }
     int getKeyPress();
     bool isPressed(unsigned int buttons);
     ~PspHandler();

@@ -6,6 +6,7 @@
  */
 #include <string.h>
 #include "PbpBlock.hpp"
+#include "logger.h"
 
 PbpBlock::PbpBlock() {
     init(NULL);
@@ -28,6 +29,7 @@ void PbpBlock::init(const char *path) {
 
 bool PbpBlock::load() {
     SceIo fd;
+    kprintf("PbpBlock::load, %s\n", file);
     if(file && !fd.open(file, SceIo::FILE_READ))
         return false;
     if(file) {
@@ -35,6 +37,7 @@ bool PbpBlock::load() {
         sfo->load(&fd, header->icon0_offset - header->sfo_offset);
         fd.close();
     } else {
+        kprintf("Loading: %s\n", SFO_PATH);
         SceSize size = sfo->load(SFO_PATH);
         if(!size) {
             return false;

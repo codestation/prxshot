@@ -12,6 +12,7 @@
 #include "Screenshot.hpp"
 #include <SceIo.hpp>
 #include "bitmap.h"
+#include "logger.h"
 
 void Screenshot::setPath(const char *s_path, const char *s_format) {
     delete[] path;
@@ -31,8 +32,10 @@ int Screenshot::updateFilename() {
         if(last_id == max_id)
             last_id = 0;
         SceIo fd;
-        if(!fd.open(filename, SceIo::FILE_READ))
+        if(!fd.open(filename, SceIo::FILE_READ)) {
+            kprintf("Using %s as name\n", filename);
             return last_id;
+        }
         fd.close();
     } while(end != last_id);
     return -1;

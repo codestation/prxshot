@@ -7,6 +7,8 @@
 #include <string.h>
 #include <malloc.h>
 #include "SfoBlock.hpp"
+#include "Thread.hpp"
+#include "logger.h"
 
 void SfoBlock::load(SceIo *fd, int sfo_size) {
     //data_block = (char *)memalign(size, 64);
@@ -25,8 +27,16 @@ void SfoBlock::load(SceIo *fd, int sfo_size) {
 
 SceSize SfoBlock::load(const char *file) {
     SceIo fd;
-    if(!fd.open(file, SceIo::FILE_READ))
-        return 0;
+    kprintf("SfoBlock Loading %s\n", file);
+    if(!memcmp(file, "disc0", 5)) {
+        while(!fd.open(file, SceIo::FILE_READ)) {
+            Thread::delay(100000);
+        }
+    } else {
+        if(!fd.open(file, SceIo::FILE_READ)) {
+            return 0;
+        }
+    }
     SceSize size = fd.size();
     load(&fd, size);
     fd.close();
@@ -65,6 +75,15 @@ bool SfoBlock::getStringValue(const char *key, char *value, int size) {
         }
     }
     return false;
+}
+
+const char *SfoBlock::getStringValue(const char *key) {
+    for(unsigned int i = 0; i < header->pair_count; i++) {
+        if(!strcmp((const char *)data_block + index[i].key_offset, key)) {
+            return (char *)values[i];
+        }
+    }
+    return NULL;
 }
 
 void SfoBlock::setIntValue(const char *key, int value) {

@@ -86,10 +86,36 @@ void gfree(void *ptr) {
     }
 }
 
+#ifdef DEBUG_MEMORY
+int max_memory = 0;
+int cur_memory = 0;
+#endif
+
 void *malloc(size_t size) {
+#ifdef DEBUG_MEMORY
+    int free = sceKernelHeapTotalFreeSize(heap);
+    void *ptr = sceKernelAllocHeapMemory(heap, size);
+    free = free - sceKernelHeapTotalFreeSize(heap);
+    cur_memory += free;
+    if(cur_memory > max_memory) {
+        max_memory = cur_memory;
+        kprintf("Max used memory: %i bytes\n", max_memory);
+    }
+    return ptr;
+#else
 	return sceKernelAllocHeapMemory(heap, size);
+#endif
 }
 
 void free(void *ptr) {
+#ifdef DEBUG_MEMORY
+    int free = 0;
+    if(ptr) free = sceKernelHeapTotalFreeSize(heap);
+#endif
 	if(ptr) sceKernelFreeHeapMemory(heap, ptr);
+#ifdef DEBUG_MEMORY
+	free = sceKernelHeapTotalFreeSize(heap) - free;
+	cur_memory -= free;
+#endif
+
 }

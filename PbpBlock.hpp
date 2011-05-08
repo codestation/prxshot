@@ -8,6 +8,7 @@
 #ifndef PBPBLOCK_H_
 #define PBPBLOCK_H_
 
+#include <stddef.h>
 #include "SceIo.hpp"
 #include "SfoBlock.hpp"
 

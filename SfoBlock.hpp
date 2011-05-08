@@ -51,6 +51,7 @@ public:
     bool prepare(int sfo_size, int keys_size);
     bool getIntValue(const char *key, int *value);
     bool getStringValue(const char *key, char *value, int size);
+    const char *getStringValue(const char *key);
     void setIntValue(const char *key, int value);
     void setStringValue(const char *key, const char *value, str_type type);
     ~SfoBlock();

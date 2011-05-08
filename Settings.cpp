@@ -9,6 +9,7 @@
 #include <pspctrl.h>
 #include "Settings.hpp"
 #include "minIni.h"
+#include "logger.h"
 
 Settings::Settings(const char *path) {
     filename = new char[64];

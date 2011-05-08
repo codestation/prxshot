@@ -34,7 +34,7 @@ int kwrite(const char *path, void *buffer, int buflen) {
     }
     return written;
 }
-
+/*
 void boot_info() {
     int boot = sceKernelBootFrom();
     int key = sceKernelInitKeyConfig();
@@ -65,5 +65,5 @@ void boot_info() {
             kprintf("Init mode: %i\n", key);
     }
 }
-
+*/
 #endif

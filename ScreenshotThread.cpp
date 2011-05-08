@@ -1,38 +1,51 @@
-/*
- * ScreenshotThread.cpp
- *
- *  Created on: 07/05/2011
- *      Author: code
- */
-#include <pspctrl.h>
+
 #include <string.h>
 #include "ScreenshotThread.hpp"
 #include "Settings.hpp"
 #include "PspHandler.hpp"
 #include "PbpBlock.hpp"
 #include "SceIo.hpp"
+#include "logger.h"
 
 ScreenshotThread::ScreenshotThread(int args, void *argp) {
-    this->argp = new char[args+1];
+    this->argp = new char[args];
     strcpy(this->argp, (char *)argp);
 }
 
+char *ScreenshotThread::createScreenshotDir(const char *gameid) {
+    char *path = new char[32];
+    if(settings->forceMemoryStick() || psp.getModel() < PspHandler::MODEL_GO) {
+        strcpy(path, "ms0:");
+    } else {
+        strcpy(path, "ef0:");
+    }
+    strcat(path,"/PSP/SCREENSHOT");
+    SceIo::mkdir(path);
+    strcat(path, "/");
+    strcat(path, gameid);
+    return path;
+}
+
 int ScreenshotThread::run() {
-    Settings *settings = new Settings((const char *)argp);
+    settings = new Settings((const char *)argp);
     settings->loadDefaults();
     if(settings->forceMemoryStick())
         SceIo::mkdir("ms0:/PSP");
     screen = new Screenshot();
-    PbpBlock *pbp = new PbpBlock();
+    pbp = (psp.bootFrom() == PspHandler::DISC) ? new PbpBlock() : new PbpBlock(psp.getPBPPath());
     pbp->load();
-    char id[16];
-    pbp->getSFO()->setStringValue("GAME_ID", id, SfoBlock::STR_NORMAL);
-    screen->setPath(id, settings->getScreenshotFormat());
+    char *shot_path = createScreenshotDir(pbp->getSFO()->getStringValue("DISC_ID"));
+    SceIo::mkdir(shot_path);
+    kprintf("Shot_path: %s, format: %s\n", shot_path, settings->getScreenshotFormat());
+    screen->setPath(shot_path, settings->getScreenshotFormat());
+    kprintf("Starting loop\n");
     while(screen->getID()) {
         if(psp.isPressed(settings->getKeyPress())) {
+            kprintf("Taking screenshot\n");
             screen->takePicture();
             screen->updateFilename();
         }
+        Thread::delay(100000);
     }
     return 0;
 }

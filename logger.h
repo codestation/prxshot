@@ -20,11 +20,12 @@
 #ifndef LOGGER_H_
 #define LOGGER_H_
 
+#include <stdio.h>
 #include <string.h>
 
 #define LOGFILE "ms0:/prxshot.log"
 
-int sprintf(char *str, const char *format, ...);
+//int sprintf(char *str, const char *format, ...);
 
 #ifndef KPRINTF_ENABLED
 
