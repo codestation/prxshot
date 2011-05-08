@@ -20,7 +20,7 @@
 #ifndef PSPDEFS_H_
 #define PSPDEFS_H_
 
-#include <psptypes.h>
+#include <pspkerneltypes.h>
 
 #define PSP_MEMORY_PARTITION_UMDCACHE 8
 
@@ -75,9 +75,17 @@ typedef struct SceModule2
 
 typedef int (* STMOD_HANDLER)(SceModule2 *);
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int sceKernelGetModel();
 char *sceKernelGetUMDData(void);
 unsigned int sceKernelQuerySystemCall(void * function);
 STMOD_HANDLER sctrlHENSetStartModuleHandler(STMOD_HANDLER handler);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* PSPDEFS_H_ */

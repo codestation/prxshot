@@ -1,9 +1,12 @@
 TARGET = prxshot
-OBJS = main.o bitmap.o imports.o exports.o sfo.o pbp.o kalloc.o minIni.o logger.o
+CLASS_OBJS =  PbpBlock.o Settings.o SfoBlock.o Screenshot.o Thread.o ScreenshotThread.o PspHandler.o
+OBJS = main.o bitmap.o imports.o exports.o minIni.o logger.o  kmalloc.o libcpp.o $(CLASS_OBJS)
 LIBS =
 MININI_DEFINES = -DNDEBUG -DINI_READONLY -DINI_FILETYPE=SceUID -DPORTABLE_STRNICMP -DINI_NOFLOAT
-CFLAGS = -Os -G0 -Wall -std=c99 $(MININI_DEFINES)
+SHARED_FLAGS = -O2 -G0 -Wall
+CFLAGS = $(SHARED_FLAGS) $(MININI_DEFINES)
 # -DKPRINTF_ENABLED
+CXXFLAGS = $(SHARED_FLAGS) -fno-exceptions -fno-rtti -fno-use-cxa-atexit
 ASFLAGS = $(CFLAGS)
 
 USE_KERNEL_LIBC = 1

@@ -35,4 +35,35 @@ int kwrite(const char *path, void *buffer, int buflen) {
     return written;
 }
 
+void boot_info() {
+    int boot = sceKernelBootFrom();
+    int key = sceKernelInitKeyConfig();
+    switch(boot) {
+        case PSP_BOOT_MS:
+            kprintf("Booting from Memory Stick\n");
+            break;
+        case PSP_BOOT_DISC:
+            kprintf("Booting from UMD\n");
+            break;
+        case PSP_BOOT_FLASH:
+            kprintf("Booting from Flash\n");
+            break;
+        default:
+            kprintf("Booting from: %i\n", boot);
+    }
+    switch(key) {
+        case PSP_INIT_KEYCONFIG_GAME:
+            kprintf("Init mode: Game\n");
+            break;
+        case PSP_INIT_KEYCONFIG_VSH:
+            kprintf("Init mode: VSH\n");
+            break;
+        case PSP_INIT_KEYCONFIG_POPS:
+            kprintf("Init mode: POPS\n");
+            break;
+        default:
+            kprintf("Init mode: %i\n", key);
+    }
+}
+
 #endif

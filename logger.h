@@ -21,9 +21,10 @@
 #define LOGGER_H_
 
 #include <string.h>
-#include <stdio.h>
 
 #define LOGFILE "ms0:/prxshot.log"
+
+int sprintf(char *str, const char *format, ...);
 
 #ifndef KPRINTF_ENABLED
 
@@ -39,7 +40,16 @@ extern char buffer_log[256];
     kwrite(LOGFILE, buffer_log, strlen(buffer_log)); \
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int kwrite(const char *path, void *buffer, int buflen);
+void boot_info();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
