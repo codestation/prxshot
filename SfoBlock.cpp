@@ -11,18 +11,11 @@
 #include "logger.h"
 
 void SfoBlock::load(SceIo *fd, int sfo_size) {
-    //data_block = (char *)memalign(size, 64);
     size = sfo_size;
-    data_block = (char *)malloc(sfo_size);
+    data_block = new char[sfo_size];
     fd->read(data_block, sfo_size);
     header = (sfo_header *)data_block;
-    index = (sfo_index *)data_block + header->key_offset;
-    values = new char *[header->pair_count];
-    char *value_offset = data_block + header->value_offset;
-    for(unsigned int i = 0; i < header->pair_count; i++) {
-        values[i] = value_offset;
-        value_offset += index[i].value_size_with_padding;
-    }
+    index = (sfo_index *)(data_block + sizeof(sfo_header));
 }
 
 SceSize SfoBlock::load(const char *file) {
@@ -48,7 +41,6 @@ bool SfoBlock::save(SceIo *fd) {
 }
 
 bool SfoBlock::prepare(int sfo_size, int keys_size) {
-    //data_block = (char *)memalign(sfo_size, 64);
     size = sfo_size;
     data_block = (char *)malloc(sfo_size);
     key_offset = sizeof(sfo_header);
@@ -57,9 +49,10 @@ bool SfoBlock::prepare(int sfo_size, int keys_size) {
 }
 
 bool SfoBlock::getIntValue(const char *key, int *value) {
+    const char *key_offset = (data_block + header->key_offset);
     for(unsigned int i = 0; i < header->pair_count; i++) {
-        if(!strcmp((const char *)data_block + index[i].key_offset, key)) {
-            *value = (int)values[i];
+        if(!strcmp(key_offset + index[i].key_offset, key)) {
+            *value = *(int *)(data_block + header->value_offset + index[i].data_offset);
             return true;
         }
     }
@@ -67,9 +60,10 @@ bool SfoBlock::getIntValue(const char *key, int *value) {
 }
 
 bool SfoBlock::getStringValue(const char *key, char *value, int size) {
+    const char *key_offset = (data_block + header->key_offset);
     for(unsigned int i = 0; i < header->pair_count; i++) {
-        if(!strcmp((const char *)data_block + index[i].key_offset, key)) {
-            strncpy(value, (const char *)values[i], size);
+        if(!strcmp(key_offset + index[i].key_offset, key)) {
+            strncpy(value, (const char *)(data_block + header->value_offset + index[i].data_offset), size);
             value[size-1] = 0;
             return true;
         }
@@ -78,9 +72,10 @@ bool SfoBlock::getStringValue(const char *key, char *value, int size) {
 }
 
 const char *SfoBlock::getStringValue(const char *key) {
+    const char *key_offset = (data_block + header->key_offset);
     for(unsigned int i = 0; i < header->pair_count; i++) {
-        if(!strcmp((const char *)data_block + index[i].key_offset, key)) {
-            return (char *)values[i];
+        if(!strcmp(key_offset + index[i].key_offset, key)) {
+            return (const char *)(data_block + header->value_offset + index[i].data_offset);
         }
     }
     return NULL;
@@ -108,5 +103,5 @@ void SfoBlock::setStringValue(const char *key, const char *value, str_type type)
 }
 
 SfoBlock::~SfoBlock() {
-    free(data_block);
+    delete[] data_block;
 }

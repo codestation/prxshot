@@ -36,7 +36,6 @@ struct sfo_header {
 class SfoBlock {
     sfo_header *header;
     sfo_index *index;
-    char **values;
     char *data_block;
     unsigned int key_offset;
     unsigned int value_offset;

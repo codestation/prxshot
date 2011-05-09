@@ -31,7 +31,7 @@ void libc_finish() {
 		sceKernelDeleteHeap(heap);
 }
 
-
+/*
 void *kalloc(SceSize size, const char *name, int *id, int part, int type) {
     void *block = NULL;
     *id = sceKernelAllocPartitionMemory(part, name, type, size + 63, NULL);
@@ -85,7 +85,7 @@ void gfree(void *ptr) {
         galloc_id = -1;
     }
 }
-
+*/
 #ifdef DEBUG_MEMORY
 int max_memory = 0;
 int cur_memory = 0;
@@ -94,6 +94,7 @@ int cur_memory = 0;
 void *malloc(size_t size) {
 #ifdef DEBUG_MEMORY
     int free = sceKernelHeapTotalFreeSize(heap);
+    kprintf("malloc called, %i bytes\n", size);
     void *ptr = sceKernelAllocHeapMemory(heap, size);
     free = free - sceKernelHeapTotalFreeSize(heap);
     cur_memory += free;
@@ -111,11 +112,9 @@ void free(void *ptr) {
 #ifdef DEBUG_MEMORY
     int free = 0;
     if(ptr) free = sceKernelHeapTotalFreeSize(heap);
-#endif
+    free = sceKernelHeapTotalFreeSize(heap) - free;
+    cur_memory -= free;
+#else
 	if(ptr) sceKernelFreeHeapMemory(heap, ptr);
-#ifdef DEBUG_MEMORY
-	free = sceKernelHeapTotalFreeSize(heap) - free;
-	cur_memory -= free;
 #endif
-
 }
