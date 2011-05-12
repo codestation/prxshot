@@ -54,8 +54,8 @@ int PspHandler::getKeyPress() {
     return pad.Buttons;
 }
 
-bool PspHandler::isPressed(unsigned int buttons) {
-    return (getKeyPress() & buttons) == buttons;
+bool PspHandler::isPressed(int buttons) {
+    return isPressed(getKeyPress(), buttons);
 }
 
 PspHandler::~PspHandler() {

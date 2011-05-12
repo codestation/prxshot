@@ -22,7 +22,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "Screenshot.hpp"
-#include "GlobalBuffer.h"
+#include "GlobalBuffer.hpp"
 #include "SceIo.hpp"
 #include "bitmap.h"
 #include "logger.h"

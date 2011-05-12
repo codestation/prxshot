@@ -28,7 +28,7 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-#include "GlobalBuffer.h"
+#include "GlobalBuffer.hpp"
 #include "pspdefs.h"
 #include "logger.h"
 

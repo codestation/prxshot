@@ -28,6 +28,7 @@
 ScreenshotThread::ScreenshotThread(int args, void *argp) {
     this->argp = new char[args];
     strcpy(this->argp, (char *)argp);
+    shot_path = NULL;
 }
 
 char *ScreenshotThread::createScreenshotDir(const char *gameid) {
@@ -44,22 +45,35 @@ char *ScreenshotThread::createScreenshotDir(const char *gameid) {
     return path;
 }
 
+void ScreenshotThread::prepareDirectory() {
+    delete pbp;
+    pbp = (psp.bootFrom() == PspHandler::DISC) ? new PbpBlock() : new PbpBlock(psp.getPBPPath());
+    pbp->load();
+    delete[] shot_path;
+    shot_path = createScreenshotDir(pbp->getSFO()->getStringValue("DISC_ID"));
+    SceIo::mkdir(shot_path);
+    pbp->outputDir(shot_path);
+    kprintf("Shot_path: %s, format: %s\n", shot_path, settings->getScreenshotFormat());
+    screen->setPath(shot_path, settings->getScreenshotFormat());
+}
+
 int ScreenshotThread::run() {
     settings = new Settings((const char *)argp);
     settings->loadDefaults();
     if(settings->forceMemoryStick())
         SceIo::mkdir("ms0:/PSP");
     screen = new Screenshot();
-    pbp = (psp.bootFrom() == PspHandler::DISC) ? new PbpBlock() : new PbpBlock(psp.getPBPPath());
-    pbp->load();
-    char *shot_path = createScreenshotDir(pbp->getSFO()->getStringValue("DISC_ID"));
-    SceIo::mkdir(shot_path);
-    pbp->outputDir(shot_path);
-    kprintf("Shot_path: %s, format: %s\n", shot_path, settings->getScreenshotFormat());
-    screen->setPath(shot_path, settings->getScreenshotFormat());
+    prepareDirectory();
     kprintf("Starting loop\n");
     while(screen->getID()) {
-        if(psp.isPressed(settings->getKeyPress())) {
+        int keymask = psp.getKeyPress();
+        if(psp.updated()) {
+            prepareDirectory();
+            settings->loadCustomKey(pbp->getSFO()->getStringValue("DISC_ID"));
+        }
+        if(PspHandler::isPressed(keymask, settings->getKeyPress())) {
+            if(psp.applicationType() == PspHandler::VSH && SceIo::mkdir(shot_path) < 0)
+                pbp->reset();
             kprintf("Taking screenshot\n");
             screen->takePicture();
             screen->updateFilename();

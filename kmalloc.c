@@ -70,10 +70,12 @@ void *malloc(size_t size) {
 void free(void *ptr) {
 #ifdef DEBUG_MEMORY
     int free = 0;
-    if(ptr) free = sceKernelHeapTotalFreeSize(heap);
+    if(ptr)
+        free = sceKernelHeapTotalFreeSize(heap);
     free = sceKernelHeapTotalFreeSize(heap) - free;
     cur_memory -= free;
 #else
-    if(ptr) sceKernelFreeHeapMemory(heap, ptr);
+    if(ptr)
+        sceKernelFreeHeapMemory(heap, ptr);
 #endif
 }

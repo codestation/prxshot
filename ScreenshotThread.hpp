@@ -28,11 +28,13 @@
 
 class ScreenshotThread: public Thread {
     char *argp;
+    char *shot_path;
     Screenshot *screen;
     PspHandler psp;
     PbpBlock *pbp;
     Settings *settings;
     char *createScreenshotDir(const char *gameid);
+    void prepareDirectory();
 protected:
     int run();
 public:

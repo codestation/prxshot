@@ -28,6 +28,7 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+#include "Settings.hpp"
 #include "pspdefs.h"
 
 class PspHandler {
@@ -64,10 +65,17 @@ public:
         else
             return static_cast<boot_type>(sceKernelBootFrom());
     }
-    inline app_type applicationType() { return static_cast<app_type>(sceKernelInitKeyConfig()); }
-    inline model_type getModel() { return static_cast<model_type>(sceKernelGetModel()); }
+    inline app_type applicationType() {
+        return static_cast<app_type>(sceKernelInitKeyConfig());
+    }
+    inline model_type getModel() {
+        return static_cast<model_type>(sceKernelGetModel());
+    }
     int getKeyPress();
-    bool isPressed(unsigned int buttons);
+    bool isPressed(int buttons);
+    inline static bool isPressed(int buttons, int mask) {
+        return (buttons & mask) == mask;
+    }
     ~PspHandler();
 };
 

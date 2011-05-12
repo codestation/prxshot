@@ -62,18 +62,6 @@ bool SfoBlock::getIntValue(const char *key, int *value) {
     }
     return false;
 }
-/*
-bool SfoBlock::getStringValue(const char *key, char *value, int size) {
-    const char *key_offset = (data_block + header->key_offset);
-    for(unsigned int i = 0; i < header->pair_count; i++) {
-        if(!strcmp(key_offset + index[i].key_offset, key)) {
-            strncpy(value, (const char *)(data_block + header->value_offset + index[i].data_offset), size);
-            value[size-1] = 0;
-            return true;
-        }
-    }
-    return false;
-}*/
 
 const char *SfoBlock::getStringValue(const char *key) {
     const char *key_offset = (data_block + header->key_offset);

@@ -66,10 +66,10 @@ public:
     PbpBlock(const char *file);
     bool load();
     void outputDir(const char *path);
-    void unload();
+    inline void reset() { is_created = false; };
     //FIXME
-    bool created() { return is_created; }
-    SfoBlock *getSFO() { return sfo; }
+    inline bool created() { return is_created; }
+    inline SfoBlock *getSFO() { return sfo; }
     ~PbpBlock();
 };
 
