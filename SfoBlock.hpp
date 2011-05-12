@@ -54,7 +54,6 @@ class SfoBlock {
     unsigned int value_offset;
     unsigned int size;
 public:
-    enum str_type { STR_NORMAL, STR_TITLE };
     SfoBlock() : data_block(NULL) {};
     const char *getData() { return data_block; }
     void load(SceIo *fd, int size);
@@ -62,10 +61,9 @@ public:
     bool save(SceIo *fd);
     bool prepare(int sfo_size, int pair_count, int keys_size);
     bool getIntValue(const char *key, int *value);
-    bool getStringValue(const char *key, char *value, int size);
     const char *getStringValue(const char *key);
     void setIntValue(const char *key, int value);
-    void setStringValue(const char *key, const char *value, str_type type);
+    void setStringValue(const char *key, const char *value);
     ~SfoBlock();
 };
 

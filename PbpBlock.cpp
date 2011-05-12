@@ -146,11 +146,10 @@ SfoBlock *PbpBlock::generatePSCM(SfoBlock *sfo) {
     if(!sfo->getIntValue(PARENTAL_LEVEL, &value))
         value = 1;
     pscm->setIntValue(PARENTAL_LEVEL, value);
-    char *title = new char[128];
-    if(!sfo->getStringValue(TITLE, title, TITLE_SIZE))
-        strcpy(title, "Game / Homebrew");
-    pscm->setStringValue(TITLE, title, SfoBlock::STR_TITLE);
-    delete title;
+    const char *title = sfo->getStringValue(TITLE);
+    if(!title)
+        title = "Game / Homebrew";
+    pscm->setStringValue(TITLE, title);
     if(!sfo->getIntValue(VERSION, &value))
         value = 0x10000;
     pscm->setIntValue(VERSION, value);

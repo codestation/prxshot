@@ -62,7 +62,7 @@ bool SfoBlock::getIntValue(const char *key, int *value) {
     }
     return false;
 }
-
+/*
 bool SfoBlock::getStringValue(const char *key, char *value, int size) {
     const char *key_offset = (data_block + header->key_offset);
     for(unsigned int i = 0; i < header->pair_count; i++) {
@@ -73,7 +73,7 @@ bool SfoBlock::getStringValue(const char *key, char *value, int size) {
         }
     }
     return false;
-}
+}*/
 
 const char *SfoBlock::getStringValue(const char *key) {
     const char *key_offset = (data_block + header->key_offset);
@@ -118,7 +118,7 @@ void SfoBlock::setIntValue(const char *key, int value) {
     index_count++;
 }
 
-void SfoBlock::setStringValue(const char *key, const char *value, str_type type) {
+void SfoBlock::setStringValue(const char *key, const char *value) {
     kprintf("setStringsValue, key: %s, value: %s\n", key, value);
     sfo_index *idx = &index[index_count];
     idx->key_offset = key_offset;
@@ -126,15 +126,10 @@ void SfoBlock::setStringValue(const char *key, const char *value, str_type type)
     idx->data_type = 2;
     idx->alignment = 4;
     idx->value_size = strlen(value) + 1;
-    switch(type) {
-    case STR_TITLE:
+    if(!strcmp(key, "TITLE"))
         idx->value_size_with_padding = TITLE_SIZE;
-        break;
-    case STR_NORMAL:
-    default:
+    else
         idx->value_size_with_padding = ALIGN(strlen(value), 4);
-    }
-    //idx->value_size_with_padding = type == STR_TITLE ? TITLE_SIZE : ALIGN(strlen(value), 4);
     strcpy((char *)(data_block + header->key_offset + key_offset), key);
     char *value_addr = (char *)(data_block + header->value_offset + value_offset);
     memset(value_addr, 0, idx->value_size_with_padding);
