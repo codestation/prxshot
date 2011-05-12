@@ -9,6 +9,7 @@
 #define PBPBLOCK_H_
 
 #include <stddef.h>
+#include "Thread.hpp"
 #include "SceIo.hpp"
 #include "SfoBlock.hpp"
 
@@ -21,7 +22,7 @@
 #define ICON0_PATH "disc0:/PSP_GAME/ICON0.PNG"
 #define PIC1_PATH "disc0:/PSP_GAME/PIC1.PNG"
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 12288 //12KiB
 
 struct pbp_header {
     char id[4];
@@ -36,20 +37,26 @@ struct pbp_header {
     unsigned int psar_offset;
 }__attribute__((packed));
 
-class PbpBlock {
+class PbpBlock : public Thread {
     char *file;
+    char *outfile;
     pbp_header *header;
     SfoBlock *sfo;
+    bool is_created;
     void init(const char *path);
     void appendData(SceIo *out, SceIo *in, size_t size);
     SfoBlock *generatePSCM(SfoBlock *sfo);
     enum file_type {FILE_PBP, FILE_SFO};
+protected:
+    int run();
 public:
     PbpBlock();
     PbpBlock(const char *file);
     bool load();
+    void outputDir(const char *path);
     void unload();
-    bool createPSCM(const char *outfile);
+    //FIXME
+    bool created() { return is_created; }
     SfoBlock *getSFO() { return sfo; }
     ~PbpBlock();
 };

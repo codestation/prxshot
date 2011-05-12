@@ -20,7 +20,6 @@ void SfoBlock::load(SceIo *fd, int sfo_size) {
 
 SceSize SfoBlock::load(const char *file) {
     SceIo fd;
-    kprintf("SfoBlock Loading %s\n", file);
     if(!memcmp(file, "disc0", 5)) {
         while(!fd.open(file, SceIo::FILE_READ)) {
             Thread::delay(100000);
@@ -38,14 +37,6 @@ SceSize SfoBlock::load(const char *file) {
 
 bool SfoBlock::save(SceIo *fd) {
     return (fd->write(data_block, size) > 0);
-}
-
-bool SfoBlock::prepare(int sfo_size, int keys_size) {
-    size = sfo_size;
-    data_block = (char *)malloc(sfo_size);
-    key_offset = sizeof(sfo_header);
-    value_offset = key_offset + ALIGN(keys_size, 4);
-    return (data_block);
 }
 
 bool SfoBlock::getIntValue(const char *key, int *value) {
@@ -81,25 +72,63 @@ const char *SfoBlock::getStringValue(const char *key) {
     return NULL;
 }
 
+bool SfoBlock::prepare(int sfo_size, int pair_count, int keys_size) {
+    size = sfo_size;
+    data_block = new char[sfo_size];
+    header = (sfo_header *)data_block;
+    index = (sfo_index *)(data_block + sizeof(sfo_header));
+    memcpy(header->id, "\0PSF", 4);
+    header->version = 0x0101;
+    header->key_offset = sizeof(sfo_header) + (sizeof(sfo_index) * pair_count);
+    header->value_offset = header->key_offset + keys_size;
+    header->pair_count = pair_count;
+    key_offset = 0;
+    value_offset = 0;
+    index_count = 0;
+    return (data_block);
+}
+
 void SfoBlock::setIntValue(const char *key, int value) {
-    strcpy(data_block + key_offset, key);
+    kprintf("setIntValue, key: %s, value: %i\n", key, value);
+    sfo_index *idx = &index[index_count];
+    idx->key_offset = key_offset;
+    idx->data_offset = value_offset;
+    idx->data_type = 4;
+    idx->alignment = 4;
+    idx->value_size = 4;
+    idx->value_size_with_padding = 4;
+
+    strcpy((char *)(data_block + header->key_offset + key_offset), key);
+    *(int *)(data_block + header->value_offset + value_offset) = value;
     key_offset += strlen(key) + 1;
-    *(int *)(data_block + value_offset) = value;
     value_offset += 4;
+    index_count++;
 }
 
 void SfoBlock::setStringValue(const char *key, const char *value, str_type type) {
-    strcpy(data_block + key_offset, key);
-    key_offset += strlen(key) + 1;
-    strcpy(data_block + value_offset, value);
+    kprintf("setStringsValue, key: %s, value: %s\n", key, value);
+    sfo_index *idx = &index[index_count];
+    idx->key_offset = key_offset;
+    idx->data_offset = value_offset;
+    idx->data_type = 2;
+    idx->alignment = 4;
+    idx->value_size = strlen(value) + 1;
     switch(type) {
     case STR_TITLE:
-        value_offset += TITLE_SIZE;
+        idx->value_size_with_padding = TITLE_SIZE;
         break;
     case STR_NORMAL:
     default:
-        value_offset += ALIGN(strlen(value), 4);
+        idx->value_size_with_padding = ALIGN(strlen(value), 4);
     }
+    //idx->value_size_with_padding = type == STR_TITLE ? TITLE_SIZE : ALIGN(strlen(value), 4);
+    strcpy((char *)(data_block + header->key_offset + key_offset), key);
+    char *value_addr = (char *)(data_block + header->value_offset + value_offset);
+    memset(value_addr, 0, idx->value_size_with_padding);
+    strcpy(value_addr, value);
+    index_count++;
+    key_offset += strlen(key) + 1;
+    value_offset += idx->value_size_with_padding;
 }
 
 SfoBlock::~SfoBlock() {

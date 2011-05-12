@@ -10,9 +10,12 @@
 #include <string.h>
 #include <stdio.h>
 #include "Screenshot.hpp"
-#include <SceIo.hpp>
+#include "GlobalBuffer.h"
+#include "SceIo.hpp"
 #include "bitmap.h"
 #include "logger.h"
+
+#define BMP_SIZE 391734
 
 void Screenshot::setPath(const char *s_path, const char *s_format) {
     delete[] path;
@@ -42,7 +45,8 @@ int Screenshot::updateFilename() {
 }
 
 bool Screenshot::takePicture() {
-    char *mem = NULL; //alloc mem
+    GlobalBuffer buffer;
+    void *mem = buffer.alloc(BMP_SIZE, GlobalBuffer::MODE_GAME);
     void *frame_addr;
     int frame_width, pixel_format;
     if(mem) {
@@ -51,7 +55,6 @@ bool Screenshot::takePicture() {
             unsigned int ptr = (unsigned int)frame_addr;
             ptr |= ptr & 0x80000000 ?  0xA0000000 : 0x40000000;
             bitmapWrite((void *)ptr, mem, pixel_format, filename);
-            // free mem
             return true;
         }
     }

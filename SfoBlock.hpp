@@ -37,6 +37,7 @@ class SfoBlock {
     sfo_header *header;
     sfo_index *index;
     char *data_block;
+    int index_count;
     unsigned int key_offset;
     unsigned int value_offset;
     unsigned int size;
@@ -47,7 +48,7 @@ public:
     void load(SceIo *fd, int size);
     SceSize load(const char *file);
     bool save(SceIo *fd);
-    bool prepare(int sfo_size, int keys_size);
+    bool prepare(int sfo_size, int pair_count, int keys_size);
     bool getIntValue(const char *key, int *value);
     bool getStringValue(const char *key, char *value, int size);
     const char *getStringValue(const char *key);

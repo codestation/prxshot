@@ -52,6 +52,16 @@ public:
     inline static int mkdir(const char *dir) {
         return sceIoMkdir(dir, 0777);
     }
+
+    inline static bool exists(const char *file) {
+        SceUID fd = sceIoOpen(file, PSP_O_RDONLY, 0777);
+        if(fd < 0)
+            return false;
+        else {
+            sceIoClose(fd);
+            return true;
+        }
+    }
 };
 
 #endif /* SCESTREAM_H_ */

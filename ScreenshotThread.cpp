@@ -36,6 +36,7 @@ int ScreenshotThread::run() {
     pbp->load();
     char *shot_path = createScreenshotDir(pbp->getSFO()->getStringValue("DISC_ID"));
     SceIo::mkdir(shot_path);
+    pbp->outputDir(shot_path);
     kprintf("Shot_path: %s, format: %s\n", shot_path, settings->getScreenshotFormat());
     screen->setPath(shot_path, settings->getScreenshotFormat());
     kprintf("Starting loop\n");
@@ -44,6 +45,9 @@ int ScreenshotThread::run() {
             kprintf("Taking screenshot\n");
             screen->takePicture();
             screen->updateFilename();
+            if(!pbp->created()) {
+                pbp->start("pscm_th");
+            }
         }
         Thread::delay(100000);
     }

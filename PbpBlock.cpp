@@ -8,6 +8,11 @@
 #include "PbpBlock.hpp"
 #include "logger.h"
 
+#define PSCM_FILE "/PSCM.DAT"
+#define PSCM_SIZE 236
+#define PSCM_PAIRS 3
+#define PSCM_KEYS_SIZE 32
+
 PbpBlock::PbpBlock() {
     init(NULL);
 }
@@ -17,6 +22,7 @@ PbpBlock::PbpBlock(const char *path) {
 }
 
 void PbpBlock::init(const char *path) {
+    is_created = false;
     header = new pbp_header;
     sfo = new SfoBlock();
     if(path) {
@@ -27,68 +33,22 @@ void PbpBlock::init(const char *path) {
     }
 }
 
-bool PbpBlock::load() {
-    SceIo fd;
-    kprintf("PbpBlock::load, %s\n", file);
-    if(file && !fd.open(file, SceIo::FILE_READ))
-        return false;
-    if(file) {
-        fd.read(header, sizeof(pbp_header));
-        sfo->load(&fd, header->icon0_offset - header->sfo_offset);
-        fd.close();
-    } else {
-        kprintf("Loading: %s\n", SFO_PATH);
-        SceSize size = sfo->load(SFO_PATH);
-        if(!size) {
-            return false;
-        }
-        memcpy(header->id, "\0PBP", 4);
-        header->version = 0x10000;
-        header->sfo_offset = sizeof(pbp_header);
-        header->icon0_offset = header->sfo_offset + size;
-    }
-    return true;
+void PbpBlock::outputDir(const char *path) {
+    outfile = new char[strlen(path) + 1 + strlen(PSCM_FILE)];
+    strcpy(outfile, path);
+    strcat(outfile, PSCM_FILE);
 }
 
-void PbpBlock::appendData(SceIo *out, SceIo *in, size_t size) {
-    int read = BUFFER_SIZE;
-    char *buffer = new char[BUFFER_SIZE];
-    while(size) {
-        read = in->read(buffer, read);
-        if(read <= 0) break;
-        out->write(buffer, read);
-        size -= read;
-        read = size < BUFFER_SIZE ? size : BUFFER_SIZE;
-    }
-    delete buffer;
-}
-
-SfoBlock *PbpBlock::generatePSCM(SfoBlock *sfo) {
-    int value;
-    SfoBlock *pscm = new SfoBlock();
-    //FIXME use calculated size 236 - 29
-    pscm->prepare(236, 32);
-    if(!sfo->getIntValue(PARENTAL_LEVEL, &value))
-        value = 1;
-    pscm->setIntValue(PARENTAL_LEVEL, value);
-    char *title = new char[128];
-    if(!sfo->getStringValue(TITLE, title, TITLE_SIZE))
-        strcpy(title, "Game / Homebrew");
-    pscm->setStringValue(TITLE, title, SfoBlock::STR_TITLE);
-    delete title;
-    if(!sfo->getIntValue(VERSION, &value))
-        value = 0x10000;
-    pscm->setIntValue(VERSION, value);
-    return pscm;
-}
-
-bool PbpBlock::createPSCM(const char *outfile) {
+int PbpBlock::run() {
+    kprintf("Started PbpBlock thread\n");
     SceSize size;
     SceIo fdo, fdi;
+    kprintf("opening %s\n", outfile);
     if(!fdo.open(outfile, SceIo::FILE_RDWR))
-        return false;
+        return 1;
+    kprintf("opening %s\n", file);
     if(file && (!fdi.open(file, SceIo::FILE_READ)))
-        return false;
+        return 1;
     SfoBlock *pscm = generatePSCM(sfo);
     fdo.write(header, sizeof(pbp_header));
     pscm->save(&fdo);
@@ -99,7 +59,7 @@ bool PbpBlock::createPSCM(const char *outfile) {
         fdi.seek(header->icon0_offset, SceIo::FILE_SET);
         size = header->icon1_offset - header->icon0_offset;
     }
-    header->icon0_offset = header->sfo_offset + size;
+    header->icon0_offset = header->sfo_offset + PSCM_SIZE;
     header->icon1_offset = header->icon0_offset + size;
     header->pic0_offset = header->icon0_offset + size;
     appendData(&fdo, &fdi, size);
@@ -124,7 +84,64 @@ bool PbpBlock::createPSCM(const char *outfile) {
     fdi.close();
     delete pscm;
     delete header;
+    is_created = true;
+    return 0;
+}
+
+bool PbpBlock::load() {
+    SceIo fd;
+    kprintf("PbpBlock::load, %s\n", file);
+    if(file && !fd.open(file, SceIo::FILE_READ))
+        return false;
+    if(file) {
+        fd.read(header, sizeof(pbp_header));
+        sfo->load(&fd, header->icon0_offset - header->sfo_offset);
+        fd.close();
+    } else {
+        kprintf("Loading: %s\n", SFO_PATH);
+        SceSize size = sfo->load(SFO_PATH);
+        if(!size) {
+            return false;
+        }
+        memcpy(header->id, "\0PBP", 4);
+        header->version = 0x10000;
+        header->sfo_offset = sizeof(pbp_header);
+        header->icon0_offset = header->sfo_offset + size;
+    }
+    is_created = false;
     return true;
+}
+
+void PbpBlock::appendData(SceIo *out, SceIo *in, size_t size) {
+    int read = BUFFER_SIZE;
+    char *buffer = new char[BUFFER_SIZE];
+    while(size) {
+        read = in->read(buffer, read);
+        if(read <= 0) break;
+        out->write(buffer, read);
+        size -= read;
+        read = size < BUFFER_SIZE ? size : BUFFER_SIZE;
+    }
+    delete buffer;
+}
+
+SfoBlock *PbpBlock::generatePSCM(SfoBlock *sfo) {
+    int value;
+    kprintf("Generating PSCM\n");
+    SfoBlock *pscm = new SfoBlock();
+    pscm->prepare(PSCM_SIZE, PSCM_PAIRS, PSCM_KEYS_SIZE);
+    if(!sfo->getIntValue(PARENTAL_LEVEL, &value))
+        value = 1;
+    pscm->setIntValue(PARENTAL_LEVEL, value);
+    char *title = new char[128];
+    if(!sfo->getStringValue(TITLE, title, TITLE_SIZE))
+        strcpy(title, "Game / Homebrew");
+    pscm->setStringValue(TITLE, title, SfoBlock::STR_TITLE);
+    delete title;
+    if(!sfo->getIntValue(VERSION, &value))
+        value = 0x10000;
+    pscm->setIntValue(VERSION, value);
+    return pscm;
 }
 
 PbpBlock::~PbpBlock() {

@@ -3,9 +3,9 @@
 #include "kmalloc.h"
 #include "logger.h"
 
-PSP_MODULE_INFO("prxshot", 0x1000, 0, 4);
-KMALLOC_HEAP_SIZE_KB(8);
-PSP_MAIN_THREAD_ATTR(0);
+PSP_MODULE_INFO("prxshot", PSP_MODULE_KERNEL, 0, 4);
+PSP_MAIN_THREAD_STACK_SIZE_KB(4);
+KMALLOC_HEAP_SIZE_KB(16);
 PSP_HEAP_SIZE_KB(0);
 
 ScreenshotThread *th;
