@@ -31,17 +31,15 @@ extern "C" {
 #include "pspdefs.h"
 
 class PspHandler {
-    enum game_type {HOMEBREW, UMD_ISO, XMB, PSN, PSX};
+    //enum game_type {HOMEBREW, UMD_ISO, XMB, PSN, PSX};
+    enum state_type {STATE_NONE, STATE_GAME, STATE_LOADER};
 
     //static variables
     static STMOD_HANDLER previous;
     static volatile int loader_found;
-    static bool module_found;
-    static bool eboot_found;
-    game_type type;
+//    game_type type;
+    static state_type state;
     char *pbp_path;
-    // string array
-    static const char *blacklist[];
     //functions
     static int module_start_handler(SceModule2 *module);
     static bool checkBlacklist(const char *str);
@@ -59,8 +57,13 @@ public:
     PspHandler();
     inline int updated() { return loader_found ? loader_found-- : 0; }
     inline const char *getPBPPath() { return pbp_path; }
-    inline game_type getGameType() { return type; }
-    inline boot_type bootFrom() { return static_cast<boot_type>(sceKernelBootFrom()); }
+    //inline game_type getGameType() { return type; }
+    inline boot_type bootFrom() {
+        if(state == STATE_LOADER)
+            return DISC;
+        else
+            return static_cast<boot_type>(sceKernelBootFrom());
+    }
     inline app_type applicationType() { return static_cast<app_type>(sceKernelInitKeyConfig()); }
     inline model_type getModel() { return static_cast<model_type>(sceKernelGetModel()); }
     int getKeyPress();
