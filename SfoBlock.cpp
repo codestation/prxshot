@@ -34,6 +34,7 @@ void SfoBlock::load(SceIo *fd, int sfo_size) {
 SceSize SfoBlock::load(const char *file) {
     SceIo fd;
     if(!memcmp(file, "disc0", 5)) {
+        // wait until the UMD is ready
         while(!fd.open(file, SceIo::FILE_READ)) {
             Thread::delay(100000);
         }

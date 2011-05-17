@@ -22,11 +22,13 @@
 #include "logger.h"
 
 void Thread::start(const char *name, int priority, int stack_size) {
-    if((thread_id = sceKernelCreateThread(name, &_run, priority, stack_size, 0, 0)) >= 0) {
+    if((thread_id = sceKernelCreateThread(name, &_run, priority, stack_size, 0, NULL)) >= 0) {
         Thread *thisptr = this;
         // this function makes a copy of the data passed on the 3rd arg
         // so we can't pass "this" directly.
         sceKernelStartThread(thread_id, 4, &thisptr);
+    } else {
+        kprintf("Failed to create thread: %08X\n", thread_id);
     }
 }
 

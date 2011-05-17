@@ -18,16 +18,19 @@
  */
 
 #include <string.h>
+#include <malloc.h>
 #include <pspctrl.h>
+#include "libcpp.h"
 #include "Settings.hpp"
 #include "minIni.h"
 #include "logger.h"
 
+#define SETTINGS_FILENAME "prxshot.ini"
+#define BMP_SIZE 391734
+#define ALIGN(x, y) (((x) + ((y)-1)) & ~((y)-1))
+
 Settings::Settings(const char *path) {
-    filename = new char[64];
-    strcpy(filename, path);
-    strrchr(filename, '/')[1] = 0;
-    strcpy(filename + strlen(filename), "prxshot.ini");
+    filename = strjoin(path, SETTINGS_FILENAME);
 }
 
 void Settings::loadDefaults() {
@@ -42,5 +45,5 @@ void Settings::loadCustomKey(const char *gameid) {
 }
 
 Settings::~Settings() {
-    delete[] filename;
+    free(filename);
 }

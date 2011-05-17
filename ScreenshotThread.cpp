@@ -17,6 +17,8 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <psputils.h>
+#include <stdio.h>
 #include <string.h>
 #include "ScreenshotThread.hpp"
 #include "Settings.hpp"
@@ -28,7 +30,10 @@
 ScreenshotThread::ScreenshotThread(int args, void *argp) {
     this->argp = new char[args];
     strcpy(this->argp, (char *)argp);
+    strrchr(this->argp, '/')[1] = 0;
     shot_path = NULL;
+    pbp = NULL;
+    migrated = false;
 }
 
 char *ScreenshotThread::createScreenshotDir(const char *gameid) {
@@ -45,12 +50,52 @@ char *ScreenshotThread::createScreenshotDir(const char *gameid) {
     return path;
 }
 
+char *sha1Key(const char *title) {
+    char digest[20];
+    char *buffer = new char[20];
+    sceKernelUtilsSha1Digest((u8 *)title, strlen(title), (u8 *)digest);
+    sprintf(buffer, "PS%08X", *(u8 *)digest);
+    return buffer;
+}
+
 void ScreenshotThread::prepareDirectory() {
     delete pbp;
-    pbp = (psp.bootFrom() == PspHandler::DISC) ? new PbpBlock() : new PbpBlock(psp.getPBPPath());
+    if(psp.bootFrom() == PspHandler::DISC || psp.applicationType() == PspHandler::VSH) {
+        kprintf("Loading PbpBlock\n");
+        pbp = new PbpBlock();
+    } else {
+        kprintf("Loading PbpBlock, with path: %s\n", psp.getPBPPath());
+        pbp = new PbpBlock(psp.getPBPPath());
+    }
+    if(psp.applicationType() == PspHandler::VSH)
+        pbp->setSfoPath(argp);
+    kprintf("Loading PBP/SFO\n");
     pbp->load();
     delete[] shot_path;
-    shot_path = createScreenshotDir(pbp->getSFO()->getStringValue("DISC_ID"));
+    kprintf("calling createScreenshotDir\n");
+    if(psp.applicationType() == PspHandler::VSH) {
+        shot_path = createScreenshotDir("XMB");
+    } else {
+        const char *gamekey = pbp->getSFO()->getStringValue("DISC_ID");
+        // eboot found (Homebrew or PSN)
+        if(psp.bootFrom() == PspHandler::DISC) {
+            shot_path = createScreenshotDir(gamekey);
+        }else {
+            char *gen_id = sha1Key(pbp->getSFO()->getStringValue("TITLE"));
+            if(!strcmp(gamekey, "USUSROCO")) {
+                shot_path = createScreenshotDir(gen_id);
+            } else {
+                shot_path = createScreenshotDir(pbp->getSFO()->getStringValue("DISC_ID"));
+                if(!migrated) {
+                    char *olddir = createScreenshotDir(gen_id);
+                    SceIo::rename(olddir, shot_path);
+                    delete[] olddir;
+                    migrated = true;
+                }
+            }
+            delete []gen_id;
+        }
+    }
     SceIo::mkdir(shot_path);
     pbp->outputDir(shot_path);
     kprintf("Shot_path: %s, format: %s\n", shot_path, settings->getScreenshotFormat());
@@ -58,8 +103,10 @@ void ScreenshotThread::prepareDirectory() {
 }
 
 int ScreenshotThread::run() {
-    settings = new Settings((const char *)argp);
+    kprintf("ScreenshotThread started\n");
+    settings = new Settings(argp);
     settings->loadDefaults();
+    kprintf("Settings loaded\n");
     if(settings->forceMemoryStick())
         SceIo::mkdir("ms0:/PSP");
     screen = new Screenshot();
@@ -67,17 +114,23 @@ int ScreenshotThread::run() {
     kprintf("Starting loop\n");
     while(screen->getID()) {
         int keymask = psp.getKeyPress();
-        if(psp.updated()) {
+        if(psp.applicationType() != PspHandler::VSH && psp.updated()) {
             prepareDirectory();
             settings->loadCustomKey(pbp->getSFO()->getStringValue("DISC_ID"));
         }
         if(PspHandler::isPressed(keymask, settings->getKeyPress())) {
-            if(psp.applicationType() == PspHandler::VSH && SceIo::mkdir(shot_path) < 0)
+            if(psp.applicationType() == PspHandler::VSH && SceIo::mkdir(shot_path) == 0) {
+                kprintf("XMB directory deleted\n");
                 pbp->reset();
+                screen->reset();
+            }
             kprintf("Taking screenshot\n");
-            screen->takePicture();
+            screen->takePicture(psp.bootFrom());
             screen->updateFilename();
             if(!pbp->created()) {
+                kprintf("Starting pbp thread\n");
+                if(settings->clearCache())
+                    pbp->onStop(&psp.clearCache);
                 pbp->start("pscm_th");
             }
         }

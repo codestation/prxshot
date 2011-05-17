@@ -24,15 +24,16 @@
 #include <pspthreadman.h>
 
 class Thread {
-    SceUID thread_id;
-    static int _run(SceSize args, void *argp);
-protected:
-    virtual int run() = 0;
 public:
     Thread() {}
     void start(const char *name, int priority = 0x10, int stack_size = 0x1000);
     static void delay(unsigned int usecs) { sceKernelDelayThread(usecs); }
     void stop();
+protected:
+    virtual int run() = 0;
+private:
+    static int _run(SceSize args, void *argp);
+    SceUID thread_id;
 };
 
 #endif /* THREAD_H_ */

@@ -27,19 +27,21 @@
 #include "Settings.hpp"
 
 class ScreenshotThread: public Thread {
+public:
+    ScreenshotThread(int args, void *argp);
+    ~ScreenshotThread();
+protected:
+    int run();
+private:
+    char *createScreenshotDir(const char *gameid);
+    void prepareDirectory();
+    bool migrated;
     char *argp;
     char *shot_path;
     Screenshot *screen;
     PspHandler psp;
     PbpBlock *pbp;
     Settings *settings;
-    char *createScreenshotDir(const char *gameid);
-    void prepareDirectory();
-protected:
-    int run();
-public:
-    ScreenshotThread(int args, void *argp);
-    ~ScreenshotThread();
 };
 
 #endif /* SCREENSHOTTHREAD_H_ */

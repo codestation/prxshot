@@ -18,6 +18,7 @@
  */
 
 #include <pspctrl.h>
+#include <pspiofilemgr.h>
 #include <string.h>
 #include "PspHandler.hpp"
 
@@ -26,9 +27,11 @@ STMOD_HANDLER PspHandler::previous = NULL;
 PspHandler::state_type PspHandler::state = PspHandler::STATE_NONE;
 
 PspHandler::PspHandler() {
-    const char *filename = sceKernelInitFileName();
-    pbp_path = new char[strlen(filename)+1];
-    strcpy(pbp_path, filename);
+    if(applicationType() != VSH) {
+        const char *filename = sceKernelInitFileName();
+        pbp_path = new char[strlen(filename)+1];
+        strcpy(pbp_path, filename);
+    }
     if(applicationType() != VSH && applicationType() != POPS && bootFrom() != DISC) {
         previous = sctrlHENSetStartModuleHandler(&module_start_handler);
     }
@@ -56,6 +59,12 @@ int PspHandler::getKeyPress() {
 
 bool PspHandler::isPressed(int buttons) {
     return isPressed(getKeyPress(), buttons);
+}
+
+void PspHandler::clearCache() {
+    if(applicationType() == VSH) {
+        sceIoDevctl("fatms0:", 0x0240D81E, NULL, 0, NULL, 0);
+    }
 }
 
 PspHandler::~PspHandler() {

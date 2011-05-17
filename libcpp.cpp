@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 #include <malloc.h>
+#include <string.h>
 
 // error handler for pure virtual functions
 extern "C" void __cxa_pure_virtual() { while (1); }
@@ -39,4 +40,19 @@ void operator delete(void *ptr) {
 
 void operator delete[](void *ptr) {
     free(ptr);
+}
+
+char *strdup(const char *s1) {
+    char *s2 = (char *)malloc(strlen(s1)+1);
+    if(s2 == NULL) {
+        return NULL;
+    }
+    strcpy(s2, s1);
+    return s2;
+}
+
+char *strjoin(const char *s1, const char *s2) {
+    char *s3 = (char *)malloc(strlen(s1) + strlen(s2) + 1);
+    strcpy(s3, s1);
+    return strcat(s3, s2);
 }

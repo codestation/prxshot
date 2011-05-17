@@ -21,6 +21,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
+#include <malloc.h>
 #include "Screenshot.hpp"
 #include "GlobalBuffer.hpp"
 #include "SceIo.hpp"
@@ -30,12 +31,14 @@
 #define BMP_SIZE 391734
 
 void Screenshot::setPath(const char *s_path, const char *s_format) {
-    delete[] path;
-    path = new char[strlen(s_path)+1];
-    strcpy(path, s_path);
-    delete[] format;
-    format = new char[strlen(s_format)+1];
-    strcpy(format, s_format);
+    free(path);
+    path = strdup(s_path);
+    free(format);
+    format = strdup(s_format);
+    reset();
+}
+
+void Screenshot::reset() {
     last_id = 0;
     updateFilename();
 }
@@ -56,9 +59,9 @@ int Screenshot::updateFilename() {
     return -1;
 }
 
-bool Screenshot::takePicture() {
+bool Screenshot::takePicture(PspHandler::boot_type type) {
     GlobalBuffer buffer;
-    void *mem = buffer.alloc(BMP_SIZE, GlobalBuffer::MODE_GAME);
+    void *mem = buffer.alloc(BMP_SIZE, type == PspHandler::DISC ? GlobalBuffer::MODE_GAME : GlobalBuffer::MODE_XMB);
     void *frame_addr;
     int frame_width, pixel_format;
     if(mem) {
@@ -74,6 +77,6 @@ bool Screenshot::takePicture() {
 }
 
 Screenshot::~Screenshot() {
-    delete []path;
-    delete []format;
+    free(path);
+    free(format);
 }
