@@ -33,16 +33,18 @@ extern int kmalloc_heap_kb_size __attribute__((weak));
 SceUID heap = -1;
 
 int libc_init() {
-	if(!kmalloc_heap_kb_size)
+	if(!kmalloc_heap_kb_size) {
 		kmalloc_heap_kb_size = DEFAULT_KMALLOC_HEAP_SIZE_KB;
+	}
 	kprintf("Creating heap of %i KiB\n", kmalloc_heap_kb_size);
     heap = sceKernelCreateHeap(PSP_MEMORY_PARTITION_KERNEL, kmalloc_heap_kb_size * 1024, 1, "kmHeap");
     return heap < 0 ? heap : 0;
 }
 
 void libc_finish() {
-	if(heap >= 0)
+	if(heap >= 0) {
 		sceKernelDeleteHeap(heap);
+	}
 }
 
 #ifdef DEBUG_MEMORY
@@ -69,13 +71,15 @@ void *malloc(size_t size) {
 
 void free(void *ptr) {
 #ifdef DEBUG_MEMORY
-    int free = 0;
-    if(ptr)
-        free = sceKernelHeapTotalFreeSize(heap);
-    free = sceKernelHeapTotalFreeSize(heap) - free;
-    cur_memory -= free;
-#else
-    if(ptr)
+    if(ptr) {
+        int free = sceKernelHeapTotalFreeSize(heap);
         sceKernelFreeHeapMemory(heap, ptr);
+        free = sceKernelHeapTotalFreeSize(heap) - free;
+        cur_memory -= free;
+    }
+#else
+    if(ptr) {
+        sceKernelFreeHeapMemory(heap, ptr);
+    }
 #endif
 }

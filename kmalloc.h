@@ -39,4 +39,4 @@ void free(void *ptr);
 }
 #endif
 
-#endif // _PSPLIBC_H_
+#endif // _KMALLOC_H_
