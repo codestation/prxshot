@@ -53,6 +53,9 @@ char *strdup(const char *s1) {
 
 char *strjoin(const char *s1, const char *s2) {
     char *s3 = (char *)malloc(strlen(s1) + strlen(s2) + 1);
+    if(s3 == NULL) {
+        return NULL;
+    }
     strcpy(s3, s1);
     return strcat(s3, s2);
 }
