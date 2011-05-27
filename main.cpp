@@ -38,7 +38,7 @@ extern "C" int module_start(SceSize args, void *argp) {
     }
     th = new ScreenshotThread(args, argp);
     kprintf("Starting Screenshot thread\n");
-    th->start("prxshot", 0x10, 0x1000);
+    th->start("prxshot");
     return 0;
 }
 

@@ -26,6 +26,7 @@
 class Thread {
 public:
     Thread() {}
+    // default thread priority: 16, default stack size: 4KiB
     void start(const char *name, int priority = 0x10, int stack_size = 0x1000);
     static void delay(unsigned int usecs) { sceKernelDelayThread(usecs); }
     void stop();

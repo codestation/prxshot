@@ -44,6 +44,8 @@ char *ScreenshotThread::createScreenshotDir(const char *gameid) {
         strcpy(path, "ef0:");
     }
     strcat(path,"/PSP/SCREENSHOT");
+    // make sure that the /PSP/SCREENSHOT directory exists, as it doesn't
+    // come by default (haven't tested if its created on reformat)
     SceIo::mkdir(path);
     strcat(path, "/");
     strcat(path, gameid);
@@ -51,10 +53,15 @@ char *ScreenshotThread::createScreenshotDir(const char *gameid) {
 }
 
 char *sha1Key(const char *title) {
-    char digest[20];
-    char *buffer = new char[20];
-    sceKernelUtilsSha1Digest((u8 *)title, strlen(title), (u8 *)digest);
-    sprintf(buffer, "PS%08X", *(u8 *)digest);
+    u32 digest[5];
+    // FIXME: it must be strlen(title) instead of 128  (and the buffer could
+    // be way smaller) but we have to maintain compatibility with older versions
+    // of prxshot
+    char *buffer = new char[128];
+    memset(buffer, 0, 128);
+    strcpy(buffer, title);
+    sceKernelUtilsSha1Digest((u8 *)buffer, 128, (u8 *)digest);
+    sprintf(buffer, "PS%08X", digest[0]);
     return buffer;
 }
 
@@ -82,21 +89,27 @@ void ScreenshotThread::prepareDirectory() {
             shot_path = createScreenshotDir(gamekey);
         }else {
             char *gen_id = sha1Key(pbp->getSFO()->getStringValue("TITLE"));
-            if(!strcmp(gamekey, "USUSROCO")) {
+            if(!strcmp(gamekey, "UCJS10041")) {
                 shot_path = createScreenshotDir(gen_id);
             } else {
                 shot_path = createScreenshotDir(pbp->getSFO()->getStringValue("DISC_ID"));
+                // migrate the directories from the old PSXXXXXXXX format to GAME_ID
+                // for PSN games
                 if(!migrated) {
+                    kprintf("Checking folder migration\n");
                     char *olddir = createScreenshotDir(gen_id);
-                    SceIo::rename(olddir, shot_path);
+                    kprintf("Moving %s to %s\n", olddir, shot_path);
+                    if(SceIo::rename(olddir, shot_path) == 0) {
+                        kprintf("Migration success\n");
+                    }
                     delete[] olddir;
                     migrated = true;
                 }
             }
-            delete []gen_id;
+            delete[] gen_id;
         }
     }
-    SceIo::mkdir(shot_path);
+    //SceIo::mkdir(shot_path);
     pbp->outputDir(shot_path);
     kprintf("Shot_path: %s, format: %s\n", shot_path, settings->getScreenshotFormat());
     screen->setPath(shot_path, settings->getScreenshotFormat());
@@ -114,7 +127,7 @@ int ScreenshotThread::run() {
     kprintf("Starting loop\n");
     while(screen->getID()) {
         int keymask = psp.getKeyPress();
-        if(psp.applicationType() != PspHandler::VSH && psp.updated()) {
+        if(psp.updated() && psp.applicationType() != PspHandler::VSH) {
             prepareDirectory();
             settings->loadCustomKey(pbp->getSFO()->getStringValue("DISC_ID"));
         }
@@ -123,6 +136,8 @@ int ScreenshotThread::run() {
                 kprintf("XMB directory deleted\n");
                 pbp->reset();
                 screen->reset();
+            } else {
+                SceIo::mkdir(shot_path);
             }
             kprintf("Taking screenshot\n");
             screen->takePicture(psp.bootFrom());
@@ -134,7 +149,8 @@ int ScreenshotThread::run() {
                 pbp->start("pscm_th");
             }
         }
-        Thread::delay(100000);
+        //Thread::delay(100000);
+        Thread::delay(16666);
     }
     return 0;
 }
