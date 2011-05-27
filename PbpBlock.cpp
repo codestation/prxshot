@@ -30,6 +30,15 @@
 #define XMB_FILE "xmb.sfo"
 #define XMB_ICON0 "default_icon0.png"
 
+#define PARENTAL_LEVEL "PARENTAL_LEVEL"
+#define VERSION "VERSION"
+#define TITLE "TITLE"
+#define GAME_ID "GAME_ID"
+
+#define SFO_PATH "disc0:/PSP_GAME/PARAM.SFO"
+#define ICON0_PATH "disc0:/PSP_GAME/ICON0.PNG"
+#define PIC1_PATH "disc0:/PSP_GAME/PIC1.PNG"
+
 PbpBlock::PbpBlock() {
     init(NULL);
 }
@@ -90,7 +99,7 @@ int PbpBlock::run() {
     header->pic0_offset = header->icon0_offset + size;
     if(size)
         appendData(&fdo, &fdi, size);
-    if(!file) {
+/*    if(!file) {
         fdi.close();
         if(fdi.open(PIC1_PATH, SceIo::FILE_READ))
             size = fdi.size();
@@ -99,7 +108,8 @@ int PbpBlock::run() {
     } else {
         fdi.seek(header->pic1_offset, SceIo::FILE_SET);
         size = header->snd0_offset - header->pic1_offset;
-    }
+    }*/
+    size = 0;
     header->pic1_offset = header->pic0_offset;
     header->snd0_offset = header->pic1_offset + size;
     header->psp_offset = header->pic1_offset + size;
@@ -173,8 +183,10 @@ SfoBlock *PbpBlock::generatePSCM(SfoBlock *sfo) {
         value = 1;
     pscm->setIntValue(PARENTAL_LEVEL, value);
     const char *title = sfo->getStringValue(TITLE);
-    if(!title)
+    if(!title) {
+        // must not happen, invalid SFO
         title = "Game / Homebrew";
+    }
     pscm->setStringValue(TITLE, title);
     if(!sfo->getIntValue(VERSION, &value))
         value = 0x10000;

@@ -26,8 +26,6 @@
 #include "logger.h"
 
 #define SETTINGS_FILENAME "prxshot.ini"
-#define BMP_SIZE 391734
-#define ALIGN(x, y) (((x) + ((y)-1)) & ~((y)-1))
 
 Settings::Settings(const char *path) {
     filename = strjoin(path, SETTINGS_FILENAME);

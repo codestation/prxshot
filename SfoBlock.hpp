@@ -22,11 +22,9 @@
 
 #include "SceIo.hpp"
 
-#define ALIGN(x, y) (((x) + ((y)-1)) & ~((y)-1))
-#define TITLE_SIZE 128
-#define VERSION_SIZE 4
-#define PARENTAL_LEVEL_SIZE 4
-#define PSCM_VALUES_TOTAL_SIZE (PARENTAL_LEVEL_SIZE + TITLE_SIZE + VERSION_SIZE)
+//#define VERSION_SIZE 4
+//#define PARENTAL_LEVEL_SIZE 4
+//#define PSCM_VALUES_TOTAL_SIZE (PARENTAL_LEVEL_SIZE + TITLE_SIZE + VERSION_SIZE)
 
 class SfoBlock {
 public:

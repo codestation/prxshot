@@ -23,18 +23,22 @@
 #include "Thread.hpp"
 #include "logger.h"
 
+#define TITLE_SIZE 128
+#define ALIGN(x, y) (((x) + ((y)-1)) & ~((y)-1))
+
 void SfoBlock::load(SceIo *fd, int sfo_size) {
-    size = sfo_size;
     data_block = new char[sfo_size];
     fd->read(data_block, sfo_size);
     header = (sfo_header *)data_block;
     index = (sfo_index *)(data_block + sizeof(sfo_header));
+    size = sfo_size;
 }
 
 SceSize SfoBlock::load(const char *file) {
     SceIo fd;
     if(!memcmp(file, "disc0", 5)) {
         // wait until the UMD is ready
+        //TODO: use sceUmd functions
         while(!fd.open(file, SceIo::FILE_READ)) {
             Thread::delay(100000);
         }
@@ -75,7 +79,6 @@ const char *SfoBlock::getStringValue(const char *key) {
 }
 
 bool SfoBlock::prepare(int sfo_size, int pair_count, int keys_size) {
-    size = sfo_size;
     data_block = new char[sfo_size];
     header = (sfo_header *)data_block;
     index = (sfo_index *)(data_block + sizeof(sfo_header));
@@ -87,6 +90,7 @@ bool SfoBlock::prepare(int sfo_size, int pair_count, int keys_size) {
     key_offset = 0;
     value_offset = 0;
     index_count = 0;
+    size = sfo_size;
     return (data_block);
 }
 
@@ -115,10 +119,11 @@ void SfoBlock::setStringValue(const char *key, const char *value) {
     idx->data_type = 2;
     idx->alignment = 4;
     idx->value_size = strlen(value) + 1;
-    if(!strcmp(key, "TITLE"))
+    if(!strcmp(key, "TITLE")) {
         idx->value_size_with_padding = TITLE_SIZE;
-    else
+    } else {
         idx->value_size_with_padding = ALIGN(strlen(value), 4);
+    }
     strcpy((char *)(data_block + header->key_offset + key_offset), key);
     char *value_addr = (char *)(data_block + header->value_offset + value_offset);
     memset(value_addr, 0, idx->value_size_with_padding);

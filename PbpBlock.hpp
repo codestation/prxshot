@@ -25,34 +25,40 @@
 #include "SceIo.hpp"
 #include "SfoBlock.hpp"
 
-#define PARENTAL_LEVEL "PARENTAL_LEVEL"
-#define VERSION "VERSION"
-#define TITLE "TITLE"
-#define GAME_ID "GAME_ID"
-
-#define SFO_PATH "disc0:/PSP_GAME/PARAM.SFO"
-#define ICON0_PATH "disc0:/PSP_GAME/ICON0.PNG"
-#define PIC1_PATH "disc0:/PSP_GAME/PIC1.PNG"
-
 #define BUFFER_SIZE 12288 //12KiB
-
-struct pbp_header {
-    char id[4];
-    unsigned int version;
-    unsigned int sfo_offset;
-    unsigned int icon0_offset;
-    unsigned int icon1_offset;
-    unsigned int pic0_offset;
-    unsigned int pic1_offset;
-    unsigned int snd0_offset;
-    unsigned int psp_offset;
-    unsigned int psar_offset;
-}__attribute__((packed));
 
 class PbpBlock : public Thread {
 public:
     typedef void (* THREAD_CALLBACK)(void);
+    PbpBlock();
+    ~PbpBlock();
+    PbpBlock(const char *file);
+    bool load();
+    void setSfoPath(const char *path);
+    void outputDir(const char *path);
+    inline void onStop(THREAD_CALLBACK thread_cb) {stop_func = thread_cb; }
+    inline void reset() { is_created = false; };
+    //FIXME
+    inline bool created() { return is_created; }
+    inline SfoBlock *getSFO() { return sfo; }
+protected:
+    int run();
 private:
+    struct pbp_header {
+        char id[4];
+        unsigned int version;
+        unsigned int sfo_offset;
+        unsigned int icon0_offset;
+        unsigned int icon1_offset;
+        unsigned int pic0_offset;
+        unsigned int pic1_offset;
+        unsigned int snd0_offset;
+        unsigned int psp_offset;
+        unsigned int psar_offset;
+    }__attribute__((packed));
+
+    enum file_type {FILE_PBP, FILE_SFO};
+    THREAD_CALLBACK stop_func;
     char *file;
     const char *sfo_path;
     char *outfile;
@@ -62,22 +68,7 @@ private:
     void init(const char *path);
     void appendData(SceIo *out, SceIo *in, size_t size);
     SfoBlock *generatePSCM(SfoBlock *sfo);
-    enum file_type {FILE_PBP, FILE_SFO};
-    THREAD_CALLBACK stop_func;
-protected:
-    int run();
-public:
-    PbpBlock();
-    PbpBlock(const char *file);
-    bool load();
-    void setSfoPath(const char *path);
-    void outputDir(const char *path);
-    void onStop(THREAD_CALLBACK thread_cb) { stop_func = thread_cb; }
-    inline void reset() { is_created = false; };
-    //FIXME
-    inline bool created() { return is_created; }
-    inline SfoBlock *getSFO() { return sfo; }
-    ~PbpBlock();
+
 };
 
 #endif /* PBPBLOCK_H_ */
