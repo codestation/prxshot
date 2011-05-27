@@ -35,7 +35,7 @@ public:
     SceIo() {}
 
     inline bool open(const char *file, open_mode mode) {
-        return (fd = sceIoOpen(file, mode, 0777)) >= 0 ? true : false;
+        return ((fd = sceIoOpen(file, mode, 0777)) >= 0);
     }
     inline void close() {
         sceIoClose(fd);
@@ -43,7 +43,6 @@ public:
     inline int seek(int offset, seek_mode mode) {
         return sceIoLseek32(fd, offset, mode);
     }
-
     inline void rewind() {
         sceIoLseek32(fd, 0, PSP_SEEK_SET);
     }
@@ -66,9 +65,9 @@ public:
     }
     inline static bool exists(const char *file) {
         SceUID fd = sceIoOpen(file, PSP_O_RDONLY, 0777);
-        if(fd < 0)
+        if(fd < 0) {
             return false;
-        else {
+        } else {
             sceIoClose(fd);
             return true;
         }

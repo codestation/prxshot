@@ -20,6 +20,7 @@
 #include <pspctrl.h>
 #include <pspiofilemgr.h>
 #include <string.h>
+#include <malloc.h>
 #include "PspHandler.hpp"
 
 volatile int PspHandler::loader_found = 0;
@@ -28,9 +29,7 @@ PspHandler::state_type PspHandler::state = PspHandler::STATE_NONE;
 
 PspHandler::PspHandler() {
     if(applicationType() != VSH) {
-        const char *filename = sceKernelInitFileName();
-        pbp_path = new char[strlen(filename)+1];
-        strcpy(pbp_path, filename);
+        pbp_path = strdup(sceKernelInitFileName());
     }
     if(applicationType() != VSH && applicationType() != POPS && bootFrom() != DISC) {
         previous = sctrlHENSetStartModuleHandler(&module_start_handler);
@@ -38,9 +37,10 @@ PspHandler::PspHandler() {
 }
 
 int PspHandler::module_start_handler(SceModule2 *module) {
-    if((module->text_addr == 0x08804000 ||
-        module->text_addr == 0x08900000) &&
-        module->entry_addr != 0xFFFFFFFF) {
+    if((module->text_addr == 0x08804000 ||    // base address for game eboots
+        module->text_addr == 0x08900000) &&   // base address for some homebrews
+        module->entry_addr != 0xFFFFFFFF &&   // skip some user mode prx that loads @ 0x08804000
+        strcmp(module->modname, "opnssmp")) { // this loads @ 0x08804000 too
         if(state == STATE_NONE) {
             state = STATE_GAME;
         } else {
@@ -68,5 +68,5 @@ void PspHandler::clearCache() {
 }
 
 PspHandler::~PspHandler() {
-    delete[] pbp_path;
+    free(pbp_path);
 }
