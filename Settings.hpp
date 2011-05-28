@@ -36,6 +36,7 @@ private:
     char screenshot_format[32];
     int force_ms0;
     int clear_cache;
+    int create_pic1;
 };
 
 #endif /* SETTINGS_H_ */

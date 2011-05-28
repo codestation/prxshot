@@ -21,13 +21,13 @@
 #include <pspiofilemgr.h>
 #include <string.h>
 #include <malloc.h>
-#include "PspHandler.hpp"
+#include "PspUtils.hpp"
 
-volatile int PspHandler::loader_found = 0;
-STMOD_HANDLER PspHandler::previous = NULL;
-PspHandler::state_type PspHandler::state = PspHandler::STATE_NONE;
+volatile int PspUtils::loader_found = 0;
+STMOD_HANDLER PspUtils::previous = NULL;
+PspUtils::state_type PspUtils::state = PspUtils::STATE_NONE;
 
-PspHandler::PspHandler() {
+PspUtils::PspUtils() {
     if(applicationType() != VSH) {
         pbp_path = strdup(sceKernelInitFileName());
     }
@@ -36,7 +36,7 @@ PspHandler::PspHandler() {
     }
 }
 
-int PspHandler::module_start_handler(SceModule2 *module) {
+int PspUtils::module_start_handler(SceModule2 *module) {
     if((module->text_addr == 0x08804000 ||    // base address for game eboots
         module->text_addr == 0x08900000) &&   // base address for some homebrews
         module->entry_addr != 0xFFFFFFFF &&   // skip some user mode prx that loads @ 0x08804000
@@ -51,22 +51,22 @@ int PspHandler::module_start_handler(SceModule2 *module) {
     return previous ? previous(module) : 0;
 }
 
-int PspHandler::getKeyPress() {
+int PspUtils::getKeyPress() {
     SceCtrlData pad;
     sceCtrlPeekBufferPositive(&pad, 1);
     return pad.Buttons;
 }
 
-bool PspHandler::isPressed(int buttons) {
+bool PspUtils::isPressed(int buttons) {
     return isPressed(getKeyPress(), buttons);
 }
 
-void PspHandler::clearCache() {
+void PspUtils::clearCache() {
     if(applicationType() == VSH) {
         sceIoDevctl("fatms0:", 0x0240D81E, NULL, 0, NULL, 0);
     }
 }
 
-PspHandler::~PspHandler() {
+PspUtils::~PspUtils() {
     free(pbp_path);
 }

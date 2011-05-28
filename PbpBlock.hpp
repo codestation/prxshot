@@ -30,11 +30,10 @@
 class PbpBlock : public Thread {
 public:
     typedef void (* THREAD_CALLBACK)(void);
-    PbpBlock();
+    PbpBlock(const char *plugin_path);
     ~PbpBlock();
-    PbpBlock(const char *file);
+    PbpBlock(const char *plugin_path, const char *file);
     bool load();
-    void setSfoPath(const char *path);
     void outputDir(const char *path);
     inline void onStop(THREAD_CALLBACK thread_cb) {stop_func = thread_cb; }
     inline void reset() { is_created = false; };
@@ -59,13 +58,13 @@ private:
 
     enum file_type {FILE_PBP, FILE_SFO};
     THREAD_CALLBACK stop_func;
-    char *file;
+    char *pbp_filename;
     const char *sfo_path;
     char *outfile;
     pbp_header *header;
     SfoBlock *sfo;
     bool is_created;
-    void init(const char *path);
+    void init(const char *plugin_path, const char *path);
     void appendData(SceIo *out, SceIo *in, size_t size);
     SfoBlock *generatePSCM(SfoBlock *sfo);
 

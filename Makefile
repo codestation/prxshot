@@ -1,6 +1,6 @@
 TARGET = prxshot
 CLASS_OBJS = PbpBlock.o Settings.o SfoBlock.o Screenshot.o Thread.o \
-			 ScreenshotThread.o PspHandler.o GlobalBuffer.o
+			 ScreenshotThread.o PspUtils.o GlobalBuffer.o
 OBJS =   main.o bitmap.o imports.o exports.o minIni.o logger.o \
 		 kmalloc.o libcpp.o $(CLASS_OBJS)
 LIBS =

@@ -21,6 +21,7 @@
 #include <malloc.h>
 #include "libcpp.h"
 #include "PbpBlock.hpp"
+#include "PspUtils.hpp"
 #include "logger.h"
 
 #define PSCM_FILE "/PSCM.DAT"
@@ -39,46 +40,45 @@
 #define ICON0_PATH "disc0:/PSP_GAME/ICON0.PNG"
 #define PIC1_PATH "disc0:/PSP_GAME/PIC1.PNG"
 
-PbpBlock::PbpBlock() {
-    init(NULL);
+PbpBlock::PbpBlock(const char *plugin_path) {
+    init(plugin_path, NULL);
 }
 
-PbpBlock::PbpBlock(const char *path) {
-    init(path);
+PbpBlock::PbpBlock(const char *plugin_path, const char *path) {
+    init(plugin_path, path);
 }
 
-void PbpBlock::init(const char *path) {
+void PbpBlock::init(const char *plugin_path, const char *path) {
+    sfo_path = plugin_path;
     is_created = false;
     header = new pbp_header;
     sfo = new SfoBlock();
-    sfo_path = NULL;
     stop_func = NULL;
-    file = path ? strdup(path) : NULL;
+    pbp_filename = path ? strdup(path) : NULL;
 }
 
 void PbpBlock::outputDir(const char *path) {
     outfile = strjoin(path, PSCM_FILE);
 }
 
-void PbpBlock::setSfoPath(const char *path) {
-    sfo_path = path;
-}
-
 int PbpBlock::run() {
     kprintf("Started PbpBlock thread\n");
-    SceSize size;
     SceIo fdo, fdi;
     kprintf("opening %s\n", outfile);
     if(!fdo.open(outfile, SceIo::FILE_RDWR))
         return 1;
-    kprintf("opening %s\n", file);
-    if(file && (!fdi.open(file, SceIo::FILE_READ)))
+    kprintf("opening %s\n", pbp_filename);
+    if(pbp_filename && (!fdi.open(pbp_filename, SceIo::FILE_READ)))
         return 1;
     SfoBlock *pscm = generatePSCM(sfo);
     fdo.write(header, sizeof(pbp_header));
     pscm->save(&fdo);
-    if(!file) {
-        if(sfo_path) {
+    SceSize size = header->icon1_offset - header->icon0_offset;
+    kprintf("pbp: %s, sfo: %s, pic0 size: %i bytes\n", pbp_filename, sfo_path, size);
+    if(!pbp_filename || size == 0) {
+        // XMB, UMD/ISO or PBP without icon0 detected
+        if(PspUtils::applicationType() == PspUtils::VSH || pbp_filename) {
+            // XMB or PBP without icon0 detected
             char *icon0_file = strjoin(sfo_path, XMB_ICON0);
             if(!fdi.open(icon0_file, SceIo::FILE_READ)) {
                 size = 0;
@@ -87,12 +87,13 @@ int PbpBlock::run() {
             }
             free(icon0_file);
         } else {
+            // UMD/ISO detected
             fdi.open(ICON0_PATH, SceIo::FILE_READ);
             size = fdi.size();
         }
     } else {
+        // PBP with an icon0 detected
         fdi.seek(header->icon0_offset, SceIo::FILE_SET);
-        size = header->icon1_offset - header->icon0_offset;
     }
     header->icon0_offset = header->sfo_offset + PSCM_SIZE;
     header->icon1_offset = header->icon0_offset + size;
@@ -116,7 +117,7 @@ int PbpBlock::run() {
     header->psar_offset = header->pic1_offset + size;
     if(size)
         appendData(&fdo, &fdi, size);
-    if(!file)
+    if(!pbp_filename)
         fdi.close();
     fdo.rewind();
     fdo.write(header, sizeof(pbp_header));
@@ -131,16 +132,16 @@ int PbpBlock::run() {
 
 bool PbpBlock::load() {
     SceIo fd;
-    kprintf("PbpBlock::load, %s\n", file);
-    if(file && !fd.open(file, SceIo::FILE_READ))
+    kprintf("PbpBlock::load, %s\n", pbp_filename);
+    if(pbp_filename && !fd.open(pbp_filename, SceIo::FILE_READ))
         return false;
-    if(file) {
+    if(pbp_filename) {
         fd.read(header, sizeof(pbp_header));
         sfo->load(&fd, header->icon0_offset - header->sfo_offset);
         fd.close();
     } else {
         SceSize size;
-        if(sfo_path) {
+        if(PspUtils::applicationType() == PspUtils::VSH) {
             char *sfo_file = strjoin(sfo_path, XMB_FILE);
             kprintf("Loading: %s\n", sfo_file);
             size = sfo->load(sfo_file);
@@ -195,7 +196,7 @@ SfoBlock *PbpBlock::generatePSCM(SfoBlock *sfo) {
 }
 
 PbpBlock::~PbpBlock() {
-    free(file);
+    free(pbp_filename);
     free(outfile);
     delete header;
     delete sfo;

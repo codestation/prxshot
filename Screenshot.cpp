@@ -59,9 +59,9 @@ int Screenshot::updateFilename() {
     return -1;
 }
 
-bool Screenshot::takePicture(PspHandler::boot_type type) {
+bool Screenshot::takePicture(PspUtils::boot_type type) {
     GlobalBuffer buffer;
-    void *mem = buffer.alloc(BMP_SIZE, type == PspHandler::DISC ? GlobalBuffer::MODE_GAME : GlobalBuffer::MODE_XMB);
+    void *mem = buffer.alloc(BMP_SIZE, type == PspUtils::DISC ? GlobalBuffer::MODE_GAME : GlobalBuffer::MODE_XMB);
     void *frame_addr;
     int frame_width, pixel_format;
     if(mem) {

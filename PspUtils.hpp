@@ -17,8 +17,8 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PSPHANDLER_H_
-#define PSPHANDLER_H_
+#ifndef PSPUTILS_H_
+#define PSPUTILS_H_
 
 // pspinit.h doesn't have C style exports in C++ ¬_¬
 #ifdef __cplusplus
@@ -31,7 +31,7 @@ extern "C" {
 #include "Settings.hpp"
 #include "pspdefs.h"
 
-class PspHandler {
+class PspUtils {
 public:
     enum boot_type {FLASH = PSP_BOOT_FLASH,
                     DISC = PSP_BOOT_DISC,
@@ -43,8 +43,8 @@ public:
 
     enum model_type {MODEL_PHAT, MODEL_SLIM, MODEL_GO = 4};
 
-    PspHandler();
-    ~PspHandler();
+    PspUtils();
+    ~PspUtils();
     inline int updated() {
         return loader_found ? loader_found-- : 0;
     }
@@ -80,4 +80,4 @@ private:
     static bool checkBlacklist(const char *str);
 };
 
-#endif /* PSPHANDLER_H_ */
+#endif /* PSPUTILS_H_ */

@@ -21,7 +21,7 @@
 #define SCREENSHOTTHREAD_H_
 
 #include "Thread.hpp"
-#include "PspHandler.hpp"
+#include "PspUtils.hpp"
 #include "Screenshot.hpp"
 #include "PbpBlock.hpp"
 #include "Settings.hpp"
@@ -39,7 +39,7 @@ private:
     char *argp;
     char *shot_path;
     Screenshot *screen;
-    PspHandler psp;
+    PspUtils psp;
     PbpBlock *pbp;
     Settings *settings;
 };

@@ -35,11 +35,6 @@ The prxshot directory comes with these files:
 * xmb.sfo: template to make folder icon for screenshots in VSH mode.
 * prxshot.ini: configuration file
 
-Known issues:
-The plugin may crash using aLoader if one take a screenshot just in the moment
-when the loader is booting the game (there is no reason for somebody to take a
-screenshot so early so i hope that this is just a minor issue).
-
 Meaning of the options in the prxshot.ini:
 
 "General" category:
@@ -97,6 +92,10 @@ Meaning of the options in the prxshot.ini:
 # Volume down button   0x200000
 
 Changelog:
+v0.4:
+[!]Internal change: rewrote the plugin in C++
+[!]Fixed the known issue of taking a screenshot while the aLoader is
+launching an ISO.
 v0.3:
 [+]Added the option to set your custom screenshot key per game.
 [!]Major rewrite to the hook core (removed the asm payload code), so it avoids

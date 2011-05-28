@@ -20,7 +20,7 @@
 #ifndef SCREENSHOT_H_
 #define SCREENSHOT_H_
 
-#include "PspHandler.hpp"
+#include "PspUtils.hpp"
 
 class Screenshot {
 public:
@@ -29,7 +29,7 @@ public:
     }
     ~Screenshot();
     void setPath(const char *s_path, const char *s_format);
-    bool takePicture(PspHandler::boot_type type);
+    bool takePicture(PspUtils::boot_type type);
     inline int getID() { return last_id; };
     int updateFilename();
     void reset();

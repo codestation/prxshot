@@ -36,6 +36,7 @@ void Settings::loadDefaults() {
     ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", screenshot_format, sizeof(screenshot_format), filename);
     force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, filename);
     clear_cache = ini_getbool("General", "XMBClearCache", 0, filename);
+    create_pic1 = ini_getbool("General", "CreatePic1", 0, filename);
 }
 
 void Settings::loadCustomKey(const char *gameid) {

@@ -22,7 +22,7 @@
 #include <string.h>
 #include "ScreenshotThread.hpp"
 #include "Settings.hpp"
-#include "PspHandler.hpp"
+#include "PspUtils.hpp"
 #include "PbpBlock.hpp"
 #include "SceIo.hpp"
 #include "logger.h"
@@ -38,7 +38,7 @@ ScreenshotThread::ScreenshotThread(int args, void *argp) {
 
 char *ScreenshotThread::createScreenshotDir(const char *gameid) {
     char *path = new char[32];
-    if(settings->forceMemoryStick() || psp.getModel() < PspHandler::MODEL_GO) {
+    if(settings->forceMemoryStick() || psp.getModel() < PspUtils::MODEL_GO) {
         strcpy(path, "ms0:");
     } else {
         strcpy(path, "ef0:");
@@ -67,25 +67,23 @@ char *sha1Key(const char *title) {
 
 void ScreenshotThread::prepareDirectory() {
     delete pbp;
-    if(psp.bootFrom() == PspHandler::DISC || psp.applicationType() == PspHandler::VSH) {
+    if(psp.bootFrom() == PspUtils::DISC || psp.applicationType() == PspUtils::VSH) {
         kprintf("Loading PbpBlock\n");
-        pbp = new PbpBlock();
+        pbp = new PbpBlock(argp);
     } else {
         kprintf("Loading PbpBlock, with path: %s\n", psp.getPBPPath());
-        pbp = new PbpBlock(psp.getPBPPath());
+        pbp = new PbpBlock(argp, psp.getPBPPath());
     }
-    if(psp.applicationType() == PspHandler::VSH)
-        pbp->setSfoPath(argp);
     kprintf("Loading PBP/SFO\n");
     pbp->load();
     delete[] shot_path;
     kprintf("calling createScreenshotDir\n");
-    if(psp.applicationType() == PspHandler::VSH) {
+    if(psp.applicationType() == PspUtils::VSH) {
         shot_path = createScreenshotDir("XMB");
     } else {
         const char *gamekey = pbp->getSFO()->getStringValue("DISC_ID");
         // eboot found (Homebrew or PSN)
-        if(psp.bootFrom() == PspHandler::DISC) {
+        if(psp.bootFrom() == PspUtils::DISC) {
             shot_path = createScreenshotDir(gamekey);
         }else {
             char *gen_id = sha1Key(pbp->getSFO()->getStringValue("TITLE"));
@@ -127,12 +125,12 @@ int ScreenshotThread::run() {
     kprintf("Starting loop\n");
     while(screen->getID()) {
         int keymask = psp.getKeyPress();
-        if(psp.updated() && psp.applicationType() != PspHandler::VSH) {
+        if(psp.updated() && psp.applicationType() != PspUtils::VSH) {
             prepareDirectory();
             settings->loadCustomKey(pbp->getSFO()->getStringValue("DISC_ID"));
         }
-        if(PspHandler::isPressed(keymask, settings->getKeyPress())) {
-            if(psp.applicationType() == PspHandler::VSH && SceIo::mkdir(shot_path) == 0) {
+        if(PspUtils::isPressed(keymask, settings->getKeyPress())) {
+            if(psp.applicationType() == PspUtils::VSH && SceIo::mkdir(shot_path) == 0) {
                 kprintf("XMB directory deleted\n");
                 pbp->reset();
                 screen->reset();
