@@ -22,6 +22,18 @@ Installation:
 Copy the prxshot directory to the seplugins directory (or anywhere you want)
 and add the plugin to the game.txt file (and/or vsh.txt if you want to).
 
+Note: prxshot++.prx is also included with this release, this is the c++ port
+of my plugin and is gonna be the default in later releases. For now the c and
+c++ versions have _exactly_ the same functionality so doesn't matter what one
+do you use. I included both in this version just because the C version is more
+tested. If you want to help fixing bugs, please use the c++ version when
+reporting them.
+
+Note for developers: this source code is a good starting point if you want
+to use OOP paradigm that c++ offers in your kernel code. I am gonna continue
+to improve it in later releases (like including some STL classes and implementing
+some sort of exception support if possible).
+
 How to use it: press the NOTE button to take a screenshot (or configure it
 to the key(s) that you want)
 
