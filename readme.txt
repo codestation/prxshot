@@ -1,4 +1,4 @@
-prxshot v0.3 - Codestation
+prxshot v0.4 - Codestation
 
 This Homebrew is an entry for the PSP Genesis competition 2011,
 sponsored by npt, psp-hacks.com, pspgen.com, pspslimhacks.com,
@@ -106,11 +106,11 @@ Meaning of the options in the prxshot.ini:
 
 Changelog:
 v0.4:
-[+]Implemented key timeout, so now yo can use other buttons that doesn't
-interfere with the normal game operation.
+[+]Implemented key timeout, so now you can add some delay to the screenshot
+button so doesn't interfere with the normal game operation.
 [!]Internal change: rewrote the plugin in C++
 [!]Fixed the known issue of taking a screenshot while the aLoader is
-launching an ISO.
+launching an ISO (only for the C++ branch)
 v0.3:
 [+]Added the option to set your custom screenshot key per game.
 [!]Major rewrite to the hook core (removed the asm payload code), so it avoids
