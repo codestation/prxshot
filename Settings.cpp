@@ -37,10 +37,12 @@ void Settings::loadDefaults() {
     force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, filename);
     clear_cache = ini_getbool("General", "XMBClearCache", 0, filename);
     create_pic1 = ini_getbool("General", "CreatePic1", 0, filename);
+    key_timeout = ini_getl("General", "KeyTimeout", 0, filename);
 }
 
-void Settings::loadCustomKey(const char *gameid) {
+void Settings::loadCustomOpts(const char *gameid) {
     key_button = ini_getlhex("CustomKeys", gameid, key_button, filename);
+    key_timeout = ini_getl("CustomTimeout", gameid, key_timeout, filename);
 }
 
 Settings::~Settings() {

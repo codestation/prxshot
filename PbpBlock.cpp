@@ -100,7 +100,8 @@ int PbpBlock::run() {
     header->pic0_offset = header->icon0_offset + size;
     if(size)
         appendData(&fdo, &fdi, size);
-/*    if(!file) {
+    //TODO. read settings to see if using pic1 is allowed
+    /*if(!file) {
         fdi.close();
         if(fdi.open(PIC1_PATH, SceIo::FILE_READ))
             size = fdi.size();

@@ -61,11 +61,12 @@ public:
     inline static model_type getModel() {
         return static_cast<model_type>(sceKernelGetModel());
     }
-    inline static bool isPressed(int buttons, int mask) {
-        return (buttons & mask) == mask;
-    }
+    static bool isPressed(int buttons, int mask, unsigned int msecs);
+    inline void setKeyTimeout(int msecs) { button_timeout = msecs; }
     int getKeyPress();
+    static unsigned int getMilliseconds();
     static void clearCache();
+    static char *sha1Key(const char *title);
     bool isPressed(int buttons);
 
 private:
@@ -74,6 +75,7 @@ private:
     static STMOD_HANDLER previous;
     static volatile int loader_found;
     static state_type state;
+    static unsigned int button_timeout;
     char *pbp_path;
 
     static int module_start_handler(SceModule2 *module);

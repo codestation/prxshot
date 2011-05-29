@@ -52,19 +52,6 @@ char *ScreenshotThread::createScreenshotDir(const char *gameid) {
     return path;
 }
 
-char *sha1Key(const char *title) {
-    u32 digest[5];
-    // FIXME: it must be strlen(title) instead of 128  (and the buffer could
-    // be way smaller) but we have to maintain compatibility with older versions
-    // of prxshot
-    char *buffer = new char[128];
-    memset(buffer, 0, 128);
-    strcpy(buffer, title);
-    sceKernelUtilsSha1Digest((u8 *)buffer, 128, (u8 *)digest);
-    sprintf(buffer, "PS%08X", digest[0]);
-    return buffer;
-}
-
 void ScreenshotThread::prepareDirectory() {
     delete pbp;
     if(psp.bootFrom() == PspUtils::DISC || psp.applicationType() == PspUtils::VSH) {
@@ -86,7 +73,7 @@ void ScreenshotThread::prepareDirectory() {
         if(psp.bootFrom() == PspUtils::DISC) {
             shot_path = createScreenshotDir(gamekey);
         }else {
-            char *gen_id = sha1Key(pbp->getSFO()->getStringValue("TITLE"));
+            char *gen_id = PspUtils::sha1Key(pbp->getSFO()->getStringValue("TITLE"));
             if(!strcmp(gamekey, "UCJS10041")) {
                 shot_path = createScreenshotDir(gen_id);
             } else {
@@ -127,9 +114,9 @@ int ScreenshotThread::run() {
         int keymask = psp.getKeyPress();
         if(psp.updated() && psp.applicationType() != PspUtils::VSH) {
             prepareDirectory();
-            settings->loadCustomKey(pbp->getSFO()->getStringValue("DISC_ID"));
+            settings->loadCustomOpts(pbp->getSFO()->getStringValue("DISC_ID"));
         }
-        if(PspUtils::isPressed(keymask, settings->getKeyPress())) {
+        if(PspUtils::isPressed(keymask, settings->getKeyPress(), settings->getKeyTimeout())) {
             if(psp.applicationType() == PspUtils::VSH && SceIo::mkdir(shot_path) == 0) {
                 kprintf("XMB directory deleted\n");
                 pbp->reset();

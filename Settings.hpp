@@ -25,8 +25,9 @@ public:
     Settings(const char *path);
     ~Settings();
     void loadDefaults();
-    void loadCustomKey(const char *gameid);
+    void loadCustomOpts(const char *gameid);
     int getKeyPress() { return key_button; }
+    int getKeyTimeout() { return key_timeout; }
     const char *getScreenshotFormat() { return screenshot_format; };
     int forceMemoryStick() { return force_ms0; }
     int clearCache() { return clear_cache; }
@@ -37,6 +38,7 @@ private:
     int force_ms0;
     int clear_cache;
     int create_pic1;
+    int key_timeout;
 };
 
 #endif /* SETTINGS_H_ */

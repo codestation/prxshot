@@ -21,18 +21,22 @@
 #include <pspiofilemgr.h>
 #include <string.h>
 #include <malloc.h>
+#include <psputils.h>
+#include <pspthreadman.h>
+#include <stdio.h>
 #include "PspUtils.hpp"
 
 volatile int PspUtils::loader_found = 0;
 STMOD_HANDLER PspUtils::previous = NULL;
 PspUtils::state_type PspUtils::state = PspUtils::STATE_NONE;
+unsigned int PspUtils::button_timeout = 0;
 
 PspUtils::PspUtils() {
     if(applicationType() != VSH) {
         pbp_path = strdup(sceKernelInitFileName());
-    }
-    if(applicationType() != VSH && applicationType() != POPS && bootFrom() != DISC) {
-        previous = sctrlHENSetStartModuleHandler(&module_start_handler);
+        if(applicationType() != POPS && bootFrom() != DISC) {
+            previous = sctrlHENSetStartModuleHandler(&module_start_handler);
+        }
     }
 }
 
@@ -58,13 +62,54 @@ int PspUtils::getKeyPress() {
 }
 
 bool PspUtils::isPressed(int buttons) {
-    return isPressed(getKeyPress(), buttons);
+    return isPressed(getKeyPress(), buttons, 0);
 }
 
 void PspUtils::clearCache() {
     if(applicationType() == VSH) {
         sceIoDevctl("fatms0:", 0x0240D81E, NULL, 0, NULL, 0);
     }
+}
+
+bool PspUtils::isPressed(int buttons, int mask, unsigned int msecs) {
+    if(msecs == 0) {
+        return (buttons & mask) == mask;
+    } else {
+        if((buttons & mask) == mask) {
+            if(button_timeout == 0) {
+                button_timeout = getMilliseconds();
+            } else {
+                if(getMilliseconds() - button_timeout > msecs) {
+                    button_timeout = 0;
+                    return true;
+                }
+            }
+        } else {
+            button_timeout = 0;
+        }
+    }
+    return false;
+}
+
+char *PspUtils::sha1Key(const char *title) {
+    u32 digest[5];
+    // FIXME: it must be strlen(title) instead of 128  (and the buffer could
+    // be way smaller) but we have to maintain compatibility with older versions
+    // of prxshot
+    char *buffer = new char[128];
+    memset(buffer, 0, 128);
+    strcpy(buffer, title);
+    sceKernelUtilsSha1Digest((u8 *)buffer, 128, (u8 *)digest);
+    sprintf(buffer, "PS%08X", digest[0]);
+    return buffer;
+}
+
+unsigned int PspUtils::getMilliseconds() {
+    SceKernelSysClock clock;
+    sceKernelGetSystemTime(&clock);
+    unsigned int time = clock.low / 1000;
+    time += clock.hi * (0xFFFFFFFF / 1000);
+    return time;
 }
 
 PspUtils::~PspUtils() {
