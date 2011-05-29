@@ -1,4 +1,4 @@
-prxshot v0.3 - Codestation
+prxshot v0.4 - Codestation
 
 This Homebrew is an entry for the PSP Genesis competition 2011,
 sponsored by npt, psp-hacks.com, pspgen.com, pspslimhacks.com,
@@ -10,11 +10,9 @@ the capture (useful for online gaming) and classifies the images
 per game using their name and icons.
 
 The plugin stores the screenshot in BMP format inside:
-
 >>  /PSP/SCREENSHOT/<GAME_ID>/pic_XXXX.bmp
 
 for umd/iso games or:
-
 >>  /PSP/SCREENSHOT/PS<8 bytes sha1sum of the title>/pic_XXXX.bmp
 
 for homebrew or games in PBP format (because the homebrews have
@@ -35,11 +33,6 @@ The prxshot directory comes with these files:
 * xmb.sfo: template to make folder icon for screenshots in VSH mode.
 * prxshot.ini: configuration file
 
-Known issues:
-The plugin may crash using aLoader if one take a screenshot just in the moment
-when the loader is booting the game (there is no reason for somebody to take a
-screenshot so early so i hope that this is just a minor issue).
-
 Meaning of the options in the prxshot.ini:
 
 "General" category:
@@ -59,6 +52,10 @@ Meaning of the options in the prxshot.ini:
   table below (or a combination of them) to select the button(s) required for
   the screenshot.
   
+* KeyTimeout: 0 by default. Change it to a positive value (in millisecs) to
+  delay the screenshot key(s) to that value. For example, setting it to 1000
+  causes the screenshot to be taken 1 second after the key was pressed
+  
 * ScreenshotName: %s/pic_%04d.bmp by default. Here you can specify a different
   prefix/suffix for the screenshot. Important: the "%s/, "%04d" and the ".bmp"
   are mandatory in that order.
@@ -75,6 +72,17 @@ Meaning of the options in the prxshot.ini:
                        
  ULES01505 = 0x000101 (Dissidia Duodecim using SELECT + LTRIGGER to take
                        the screenshot)
+                       
+"CustomTimeout" category:
+
+* ULJM08500 (a.k.a. game id): Undefined by default. Here you can use a game id
+ (you can obtain them from your game box, playstation site, UMDGen, ISO Tool,
+ PSPFiler (reading the UMD_DATA.BIN in the iso/umd), cwcheat, etc, etc) and a
+ timeout for that game (see KeyTimeout definition for details). Examples:
+ 
+ ULJM05800 = 300 (Monster Hunter 3rd game using 300 msecs to take a screenshot)
+ 
+ ULES01505 = 1500 (Dissidia Duodecim using 1.5 secs before taking the screenshot)
                        
 # Values for the screenshot button
 
@@ -97,6 +105,12 @@ Meaning of the options in the prxshot.ini:
 # Volume down button   0x200000
 
 Changelog:
+v0.4:
+[+]Implemented key timeout, so now you can add some delay to the screenshot
+button so doesn't interfere with the normal game operation.
+[!]Internal change: rewrote the plugin in C++
+[!]Fixed the known issue of taking a screenshot while the aLoader is
+launching an ISO (only in c++ branch).
 v0.3:
 [+]Added the option to set your custom screenshot key per game.
 [!]Major rewrite to the hook core (removed the asm payload code), so it avoids
