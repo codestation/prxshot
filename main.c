@@ -45,12 +45,13 @@ PSP_HEAP_SIZE_KB(8);
 #define MAX_IMAGES 10000
 #define BMP_SIZE 391734
 
-// Total: 420 bytes of global data
+// file paths and files
 char eboot_path[128];
 char ini_path[128];
 char screenshot_filename[64];
 char screenshot_basedir[32];
 char picture[32];
+
 char gameid[12];
 SceUID last_id = 0;
 int game_found = 0;
@@ -59,9 +60,14 @@ int directory_ready = 0;
 STMOD_HANDLER previous = NULL;
 int module_found = 0;
 int umd_need_gameid = 0;
+
+// prxshot.ini settings
 int key_button;
 int force_ms0;
 int clear_cache;
+unsigned int key_timeout;
+
+unsigned int last_msecs = 0;
 
 void *get_mem(SceSize size, int *id) {
     void *mem = NULL;
@@ -270,6 +276,8 @@ inline void read_settings(const char *argp) {
     create_path(ini_path, argp, "prxshot.ini");
     key_button = ini_getlhex("General", "ScreenshotKey", PSP_CTRL_NOTE, ini_path);
     kprintf("Read ScreenshotKey: %08X\n", key_button);
+    key_timeout = ini_getl("General", "KeyTimeout", 0, ini_path);
+    kprintf("Read KeyTimeout: %08X\n", key_timeout);
     ini_gets("General", "ScreenshotName", "%s/pic_%04d.bmp", picture, sizeof(picture), ini_path);
     kprintf("Read ScreenshotName: %s\n", picture);
     force_ms0 = ini_getbool("General", "PSPGoUseMS0", 0, ini_path);
@@ -291,6 +299,34 @@ inline int refresh_directory(const char *dir) {
             kprintf("Recreating %s\n", dir);
             sceIoMkdir(dir, 0777);
             return 1;
+        }
+    }
+    return 0;
+}
+
+unsigned int getMilliseconds() {
+    SceKernelSysClock clock;
+    sceKernelGetSystemTime(&clock);
+    unsigned int time = clock.low / 1000;
+    time += clock.hi * (0xFFFFFFFF / 1000);
+    return time;
+}
+
+int isButtonPressed(int buttons, int mask) {
+    if(key_timeout == 0) {
+        return (buttons & mask) == mask ? 1 : 0;
+    } else {
+        if((buttons & mask) == mask) {
+            if(last_msecs == 0) {
+                last_msecs = getMilliseconds();
+            } else {
+                if(getMilliseconds() - last_msecs > key_timeout) {
+                    last_msecs = 0;
+                    return 1;
+                }
+            }
+        } else {
+            last_msecs = 0;
         }
     }
     return 0;
@@ -330,12 +366,16 @@ int thread_start(SceSize args, void *argp) {
 		            directory_ready = 0;
 		            // get a custom key press for this specific game
 		            key_button = ini_getlhex("CustomKeys", gameid, key_button, ini_path);
+		            key_timeout = ini_getl("CustomTimeout", gameid, key_timeout, ini_path);
 		            kprintf("Got custom key button for %s: %08X\n", gameid, key_button);
+		            kprintf("Got custom key timeout for %s: %u\n", gameid, key_timeout);
 		        }
 		    } else if(eboot_found) {
 		        if(read_gameid(eboot_path, gameid, sizeof(gameid))) {
 		            key_button = ini_getlhex("CustomKeys", gameid, key_button, ini_path);
+		            key_timeout = ini_getl("CustomTimeout", gameid, key_timeout, ini_path);
 		            kprintf("Got custom key button for %s: %08X\n", gameid, key_button);
+		            kprintf("Got custom key timeout for %s: %u\n", gameid, key_timeout);
 		        }
 		        //FIXME: there isn't a way to migrate from the old generated
 		        //gameid for game eboots so we tell that we haven't found it
@@ -343,7 +383,8 @@ int thread_start(SceSize args, void *argp) {
 		        eboot_found = 0;
 		    }
 		    // check if the button combination is correct
-			if((pad.Buttons & key_button) == key_button) {
+            //if((pad.Buttons & key_button) == key_button) {
+		    if(isButtonPressed(pad.Buttons, key_button)) {
 			    // attempt to create a screenshot directory
 			    if(build_gamedir(screenshot_basedir, argp)) {
 			        // if it was susseful then reset the image counter
