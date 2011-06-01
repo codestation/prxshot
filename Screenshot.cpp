@@ -72,6 +72,8 @@ bool Screenshot::takePicture(PspUtils::boot_type type) {
             bitmapWrite((void *)ptr, mem, pixel_format, filename);
             return true;
         }
+    } else {
+        kprintf("Image allocation failed, not enough memory\n");
     }
     return false;
 }

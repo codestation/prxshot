@@ -125,13 +125,16 @@ int ScreenshotThread::run() {
                 SceIo::mkdir(shot_path);
             }
             kprintf("Taking screenshot\n");
-            screen->takePicture(psp.bootFrom());
-            screen->updateFilename();
-            if(!pbp->created()) {
-                kprintf("Starting pbp thread\n");
-                if(settings->clearCache())
-                    pbp->onStop(&psp.clearCache);
-                pbp->start("pscm_th");
+            if(screen->takePicture(psp.bootFrom())) {
+                screen->updateFilename();
+                if(!pbp->created()) {
+                    kprintf("Starting pbp thread\n");
+                    if(settings->clearCache())
+                        pbp->onStop(&psp.clearCache);
+                    pbp->start("pscm_th");
+                }
+            } else {
+                kprintf("Screenshot failed\n");
             }
         }
         //Thread::delay(100000);
